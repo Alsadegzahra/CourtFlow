@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Outputs
+outputs/
+input_videos/
+
+# Mac
+.DS_Store
+
+# Streamlit cache
+.streamlit/
