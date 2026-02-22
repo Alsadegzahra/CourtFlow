@@ -4,19 +4,16 @@ from typing import Dict, Any
 
 import cv2
 
+from src.common.ffmpeg_utils import probe_duration_ffprobe
+
 
 def get_video_metadata(video_path: Path) -> Dict[str, Any]:
     """
-    Extract basic video metadata using OpenCV.
+    Extract basic video metadata.
 
-    Returns:
-      {
-        "fps": float,
-        "frame_count": int,
-        "duration_seconds": float,
-        "width": int,
-        "height": int
-      }
+    Uses:
+      - OpenCV for fps, frame count, resolution
+      - ffprobe for accurate duration
     """
     if not video_path.exists():
         raise FileNotFoundError(f"Video not found: {video_path}")
@@ -32,10 +29,14 @@ def get_video_metadata(video_path: Path) -> Dict[str, Any]:
 
     cap.release()
 
-    # Safety: some files return fps=0
-    duration_seconds = 0.0
-    if fps > 0 and frame_count > 0:
-        duration_seconds = frame_count / fps
+    # Use ffprobe for accurate duration
+    try:
+        duration_seconds = probe_duration_ffprobe(video_path)
+    except Exception:
+        # fallback to OpenCV estimate
+        duration_seconds = 0.0
+        if fps > 0 and frame_count > 0:
+            duration_seconds = frame_count / fps
 
     return {
         "fps": fps,
