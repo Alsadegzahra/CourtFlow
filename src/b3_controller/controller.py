@@ -1,6 +1,14 @@
 # src/b3_controller/controller.py
 from __future__ import annotations
 
+"""
+Background controller loop for processing finalized matches.
+
+This module polls the DB for matches in state FINALIZED and, for each one,
+invokes the core pipeline (run_pipeline_for_match). In a deployed system
+this would typically run as a long-lived worker process.
+"""
+
 import time
 
 from src.b2_storage.db import list_matches_by_state, update_match

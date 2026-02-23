@@ -1,6 +1,15 @@
 # src/pipeline/run_match.py
 from __future__ import annotations
 
+"""
+CLI helper to run the full pipeline for a single local video.
+
+This script is intended for developers and ops: it creates a match in the
+SQLite DB, records the input file into raw chunks, registers RAW_CHUNK
+artifacts, marks the match as FINALIZED, and finally calls
+run_pipeline_for_match(match_id) to execute the stage-based pipeline.
+"""
+
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
