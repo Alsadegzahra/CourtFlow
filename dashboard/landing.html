@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CourtFlow — AI Movement Intelligence</title>
+  <style>
+    :root { --bg: #0f0f12; --card: #1a1a1f; --text: #e4e4e7; --muted: #71717a; --accent: #a78bfa; --border: #27272a; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 2rem 1.5rem; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .container { max-width: 28rem; width: 100%; text-align: center; }
+    h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 0.9375rem; margin-bottom: 2rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; }
+    label { display: block; text-align: left; font-size: 0.875rem; color: var(--muted); margin-bottom: 0.25rem; }
+    input { width: 100%; padding: 0.625rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text); font-size: 1rem; margin-bottom: 1rem; }
+    button { width: 100%; padding: 0.625rem 1rem; background: var(--accent); color: var(--bg); border: none; border-radius: 0.25rem; font-weight: 600; cursor: pointer; font-size: 1rem; }
+    button:hover { filter: brightness(1.1); }
+    .footer { margin-top: 2rem; font-size: 0.8125rem; color: var(--muted); }
+    .footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CourtFlow</h1>
+    <p class="subtitle">AI Movement Intelligence — view your post-match report and highlights.</p>
+
+    <div class="card">
+      <label for="match-id">Enter your Match ID</label>
+      <input type="text" id="match-id" placeholder="e.g. match_2026_02_25_022906" autocomplete="off">
+      <button type="button" id="btn-go">View report</button>
+    </div>
+
+    <p class="footer">
+      <a href="/docs">API docs</a>
+    </p>
+  </div>
+
+  <script>
+    (function () {
+      var input = document.getElementById("match-id");
+      var btn = document.getElementById("btn-go");
+
+      function go() {
+        var id = (input.value || "").trim();
+        if (!id) {
+          input.focus();
+          return;
+        }
+        window.location.href = "/view?match_id=" + encodeURIComponent(id);
+      }
+
+      btn.addEventListener("click", go);
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") go();
+      });
+    })();
+  </script>
+</body>
+</html>

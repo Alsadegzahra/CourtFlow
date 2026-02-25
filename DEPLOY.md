@@ -178,6 +178,66 @@ No special “migration” is required for deploy when you change the name; just
 
 ---
 
+## Using your own domain (e.g. courtflow.com)
+
+To have the app at **courtflow.com** (or **www.courtflow.com**) instead of `courtflow-mqns.onrender.com`:
+
+### 1. Add the domain in Render
+
+1. In the **Render dashboard**, open your **CourtFlow** web service.
+2. Go to **Settings** → **Custom Domains** (or **Environment** → **Custom Domains**).
+3. Click **Add Custom Domain**.
+4. Enter **courtflow.com** (and optionally **www.courtflow.com**).
+5. Render will show you the **DNS records** to add (usually a **CNAME** for `www` and an **A** or **CNAME** for the root `courtflow.com`). Copy the **host/target** value (e.g. something like `courtflow-mqns.onrender.com`).
+
+### 2. Point your domain at Render (where you bought the domain)
+
+Go to the place you registered **courtflow.com** (e.g. Namecheap, GoDaddy, Cloudflare, Google Domains).
+
+- **For www.courtflow.com**  
+  Add a **CNAME** record:  
+  - Name/host: `www`  
+  - Target/value: the Render host Render gave you (e.g. `courtflow-mqns.onrender.com`).
+
+- **For courtflow.com (root domain)**  
+  - Render often gives you an **A** record (an IP) or tells you to use a CNAME “flattening” or ALIAS.  
+  - Add whatever Render shows (e.g. **A** record with the IP they give, or the CNAME target if your registrar supports CNAME on root).
+
+Save the DNS changes. They can take from a few minutes up to 24–48 hours to propagate.
+
+### 3. HTTPS
+
+Render will issue an SSL certificate for your custom domain once DNS is correct. After that, **https://courtflow.com** and **https://www.courtflow.com** will work.
+
+No code changes are needed; the app is the same, only the URL changes.
+
+---
+
+## How to update the deploy
+
+When you change code and want the live site to use the new version:
+
+### Option 1: Push to GitHub (auto deploy)
+
+1. Commit your changes locally:
+   ```bash
+   git add .
+   git commit -m "Your message"
+   git push origin main
+   ```
+2. If **Auto-Deploy** is on (Render: **Settings** → **Build & Deploy** → **Auto-Deploy**), Render will build and deploy the new commit within a few minutes.
+3. Check the **Logs** or **Events** tab to see the new deploy.
+
+### Option 2: Deploy from the Render dashboard
+
+1. Open your service on **Render**.
+2. Click **Manual Deploy** → **Deploy latest commit** (or pick a branch/commit if you use that).
+3. Wait for the build and deploy to finish.
+
+After either option, your custom domain (e.g. **courtflow.com**) will serve the updated app; no need to change the domain or DNS again.
+
+---
+
 ## Quick reference – Render
 
 | Step | What to set |

@@ -44,6 +44,15 @@ class ArtifactOut(BaseModel):
     updated_at: str
 
 
+@app.get("/", tags=["meta"])
+def root() -> FileResponse:
+    """Main page: enter match ID to open the dashboard."""
+    path = PROJECT_ROOT / "dashboard" / "landing.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="landing.html not found")
+    return FileResponse(path, media_type="text/html")
+
+
 @app.get("/health", tags=["meta"])
 def health() -> dict:
     return {"status": "ok"}
