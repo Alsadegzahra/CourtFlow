@@ -69,3 +69,21 @@ def get_signed_url_for_key(key: str, expiration_seconds: int = 3600) -> str:
     if not bucket:
         raise RuntimeError("Set R2_BUCKET in .env")
     return get_signed_url(bucket, key, expiration_seconds=expiration_seconds)
+
+
+def get_report_from_r2(match_id: str, *, bucket: Optional[str] = None) -> Optional[dict]:
+    """
+    Fetch report.json for a match from R2. Returns None if R2 not configured or key missing.
+    Used by deployed API when local filesystem has no match data.
+    """
+    import json
+    bucket = bucket or os.getenv("R2_BUCKET")
+    if not bucket:
+        return None
+    try:
+        from src.cloud.storage_r2 import get_object_bytes
+        key = f"matches/{match_id}/report.json"
+        raw = get_object_bytes(bucket, key)
+        return json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None

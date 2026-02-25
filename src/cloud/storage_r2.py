@@ -58,6 +58,30 @@ def put_object(
     return key
 
 
+def get_object_bytes(bucket: str, key: str) -> bytes:
+    """Download object from R2; raises on missing or error."""
+    client = _get_client()
+    resp = client.get_object(Bucket=bucket, Key=key)
+    return resp["Body"].read()
+
+
+def list_match_ids_from_r2(bucket: str, *, prefix: str = "matches/", max_keys: int = 200) -> list[str]:
+    """
+    List object keys under prefix (e.g. matches/) and return unique match_id segments.
+    Keys are like matches/match_2026_02_25_022906/report.json -> match_2026_02_25_022906.
+    """
+    client = _get_client()
+    seen: set[str] = set()
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix, MaxKeys=max_keys):
+        for obj in page.get("Contents") or []:
+            key = obj.get("Key") or ""
+            parts = key.rstrip("/").split("/")
+            if len(parts) >= 2:
+                seen.add(parts[1])
+    return sorted(seen)
+
+
 def get_signed_url(
     bucket: str,
     key: str,

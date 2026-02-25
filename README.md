@@ -66,6 +66,63 @@ analytics and highlight videos. This repo uses a **unified structure**:
 
 ---
 
+### Deploy (so anyone can open the user link)
+
+**Detailed step-by-step:** see **[DEPLOY.md](DEPLOY.md)** (Render, Railway, scaling, renaming).
+
+The API can run **without a local DB or disk**: if R2 is configured, it serves match data and report from R2. So you can deploy to a free tier and share `/view?match_id=xxx`.
+
+**1. Upload at least one match to R2** (from your machine):
+
+```bash
+python3 -m src.app.cli upload-match --match_id match_2026_02_25_022906
+```
+
+**2. Deploy the API** with one of the options below. Set these **environment variables** in the host’s dashboard:
+
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET`
+- `R2_ACCOUNT_ID`
+
+Optional: `COURTFLOW_DATA_DIR` (only if you run the pipeline on the server and need persistent data).
+
+#### Option A – Render (free tier)
+
+1. Go to [render.com](https://render.com), sign in, connect your GitHub repo.
+2. **New → Web Service**. Select the repo and branch.
+3. **Build**:  
+   - Build command: `pip install -r requirements.txt`  
+   - Start command: `uvicorn src.app.api:app --host 0.0.0.0 --port $PORT`
+4. **Environment**: Add the four R2 variables above (and `PORT` is set by Render).
+5. Deploy. Your URL will be like `https://courtflow-xxx.onrender.com`.
+6. Share: `https://courtflow-xxx.onrender.com/view?match_id=match_2026_02_25_022906`
+
+#### Option B – Railway
+
+1. Go to [railway.app](https://railway.app), connect the repo and create a new project.
+2. Add a **Web Service**; Railway will detect the repo. Use a **Dockerfile** (we provide one) or set:
+   - Start: `uvicorn src.app.api:app --host 0.0.0.0 --port $PORT`
+   - Build: `pip install -r requirements.txt`
+3. In **Variables**, add the four R2 env vars. Set `PORT` only if Railway doesn’t set it.
+4. Deploy and use the generated URL: `https://xxx.up.railway.app/view?match_id=...`
+
+#### Option C – Docker (any host)
+
+```bash
+docker build -t courtflow-api .
+docker run -p 8000:8000 \
+  -e R2_ACCESS_KEY_ID=... \
+  -e R2_SECRET_ACCESS_KEY=... \
+  -e R2_BUCKET=courtflow \
+  -e R2_ACCOUNT_ID=... \
+  courtflow-api
+```
+
+Then open `http://localhost:8000/view?match_id=...` (or your server’s public URL).
+
+---
+
 ## High-level architecture
 
 - **Video processing (edge)**: Python + FFmpeg + OpenCV

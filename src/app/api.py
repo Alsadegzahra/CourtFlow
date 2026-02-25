@@ -63,15 +63,72 @@ def view_dashboard() -> FileResponse:
 
 @app.get("/matches", response_model=List[MatchOut], tags=["matches"])
 def list_matches(limit: int = 100) -> List[MatchOut]:
-    return [MatchOut(**r) for r in db.list_matches(limit=limit)]
+    rows = db.list_matches(limit=limit)
+    if rows:
+        return [MatchOut(**r) for r in rows]
+    # Deployed without DB: list match IDs from R2 (matches uploaded to cloud)
+    if _r2_configured():
+        import os
+        from src.cloud.storage_r2 import list_match_ids_from_r2
+        from src.utils.time import utcnow_iso
+        bucket = os.getenv("R2_BUCKET")
+        if bucket:
+            ids = list_match_ids_from_r2(bucket, max_keys=limit * 5)[:limit]
+            now = utcnow_iso()
+            return [
+                MatchOut(
+                    match_id=mid,
+                    court_id="—",
+                    source_type="FILE",
+                    source_uri="",
+                    output_dir="",
+                    state="DONE",
+                    started_at=None,
+                    ended_at=None,
+                    last_error=None,
+                    created_at=now,
+                    updated_at=now,
+                )
+                for mid in ids
+            ]
+    return []
+
+
+def _match_from_r2(match_id: str) -> Optional[MatchOut]:
+    """If R2 is configured and report exists for match_id, return minimal MatchOut for deployed (stateless) mode."""
+    if not _r2_configured():
+        return None
+    from src.cloud.upload import get_report_from_r2
+    report = get_report_from_r2(match_id)
+    if not report:
+        return None
+    from src.utils.time import utcnow_iso
+    now = utcnow_iso()
+    return MatchOut(
+        match_id=match_id,
+        court_id=report.get("court_id") or "—",
+        source_type="FILE",
+        source_uri="",
+        output_dir="",
+        state="DONE",
+        started_at=None,
+        ended_at=None,
+        last_error=None,
+        created_at=report.get("generated_at") or now,
+        updated_at=now,
+    )
 
 
 @app.get("/matches/{match_id}", response_model=MatchOut, tags=["matches"])
 def get_match(match_id: str) -> MatchOut:
     row = db.get_match(match_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return MatchOut(**row)
+    if row:
+        return MatchOut(**row)
+    # Deployed without DB: try R2 (report exists => match is "known")
+    match_out = _match_from_r2(match_id)
+    if match_out:
+        return match_out
+    raise HTTPException(status_code=404, detail="Match not found")
 
 
 @app.get("/matches/{match_id}/artifacts", response_model=List[ArtifactOut], tags=["artifacts"])
@@ -84,12 +141,17 @@ def list_match_artifacts(match_id: str) -> List[ArtifactOut]:
 @app.get("/matches/{match_id}/report", tags=["reports"])
 def get_match_report(match_id: str) -> dict:
     row = db.get_match(match_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="Match not found")
-    report_path = Path(row["output_dir"]) / "reports" / "report.json"
-    if not report_path.exists():
-        raise HTTPException(status_code=404, detail="Report not found")
-    return read_json(report_path)
+    if row:
+        report_path = Path(row["output_dir"]) / "reports" / "report.json"
+        if report_path.exists():
+            return read_json(report_path)
+    # Deployed without local data: try R2
+    if _r2_configured():
+        from src.cloud.upload import get_report_from_r2
+        report = get_report_from_r2(match_id)
+        if report:
+            return report
+    raise HTTPException(status_code=404, detail="Report not found")
 
 
 @app.get("/matches/{match_id}/meta", tags=["reports"])
@@ -122,10 +184,8 @@ def get_match_cloud_urls(
 ) -> dict:
     """
     Return presigned URLs for highlights.mp4 and report.json in R2.
-    Requires R2 to be configured in .env. URLs are valid for expires_seconds (default 1h).
+    Requires R2 to be configured. Works with or without local DB (for deployed stateless mode).
     """
-    if not db.get_match(match_id):
-        raise HTTPException(status_code=404, detail="Match not found")
     if not _r2_configured():
         raise HTTPException(
             status_code=503,
