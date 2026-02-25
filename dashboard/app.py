@@ -112,11 +112,97 @@ meta_path = output_dir / "meta" / "meta.json"
 report_path = output_dir / "reports" / "report.json"
 tracks_path = output_dir / "tracks" / "tracks.json"
 calib_path = output_dir / "calibration" / "homography.json"
+heatmap_path = output_dir / "reports" / "heatmap.png"
 
 highlights_dir = output_dir / "highlights"
 highlights_mp4 = highlights_dir / "highlights.mp4"
 highlights_clips_dir = highlights_dir / "clips"
 renders_dir = output_dir / "renders"
+
+# ---- Load report once for highlights + analytics ----
+report = None
+if report_path.exists():
+    try:
+        report = read_json(report_path)
+    except Exception:
+        pass
+
+# ========== HIGHLIGHTS ==========
+st.subheader("Highlights")
+if highlights_mp4.exists():
+    st.success("Highlights video")
+    st.video(str(highlights_mp4))
+    st.caption(str(highlights_mp4))
+else:
+    st.info("No highlights/highlights.mp4 yet (run pipeline with stage 06).")
+
+exported = (report or {}).get("exported_highlights") or []
+if exported:
+    st.write(f"**{len(exported)}** exported clip(s)")
+    for item in exported:
+        filename = item.get("file", "")
+        reason = item.get("reason", "—")
+        start = item.get("start", "—")
+        end = item.get("end", "—")
+        clip_path = highlights_clips_dir / filename if filename else None
+        with st.expander(f"{filename} — {start}s→{end}s ({reason})"):
+            if clip_path and clip_path.exists():
+                st.video(str(clip_path))
+            else:
+                st.warning(f"Missing: {clip_path}")
+else:
+    if highlights_clips_dir.exists():
+        mp4s = sorted(highlights_clips_dir.glob("*.mp4"))
+        if mp4s:
+            for clip_path in mp4s:
+                st.caption(clip_path.name)
+                st.video(str(clip_path))
+
+st.markdown("---")
+
+# ========== ANALYTICS ==========
+st.subheader("Analytics")
+if report and isinstance(report, dict):
+    summary = report.get("summary") or {}
+    players = report.get("players") or {}
+    analytics = report.get("analytics") or {}
+
+    # Summary metrics
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Track points", summary.get("total_track_points", "—"))
+    m2.metric("Players (IDs)", summary.get("num_players", "—"))
+    m3.metric("Total distance", f"{summary.get('total_distance', 0)}")
+    m4.metric("Track duration", f"{summary.get('total_duration_s', 0)} s")
+
+    # Heatmap
+    if heatmap_path.exists():
+        st.write("**Court heatmap** (from tracks)")
+        st.image(str(heatmap_path), use_container_width=True)
+    elif analytics.get("heatmap_path"):
+        hp = Path(analytics["heatmap_path"])
+        if hp.exists():
+            st.image(str(hp), use_container_width=True)
+
+    # Players table
+    if players:
+        st.write("**Per-player movement**")
+        rows = []
+        for pid, p in players.items():
+            rows.append({
+                "Player ID": pid,
+                "Distance": p.get("distance", 0),
+                "Duration (s)": p.get("duration_s", 0),
+                "Avg speed": p.get("avg_speed", 0),
+                "Points": p.get("point_count", 0),
+            })
+        st.dataframe(rows, use_container_width=True)
+
+    with st.expander("Full report JSON"):
+        st.json(report)
+else:
+    st.info("No report yet (run pipeline). Analytics will appear here after stage 04.")
+
+st.markdown("---")
 
 # ---- Source Video ----
 st.subheader("Source Video")
@@ -167,62 +253,6 @@ if tracks_path.exists():
         st.warning(f"Could not read tracks.json: {e}")
 else:
     st.info("tracks/tracks.json not found (stub stage).")
-
-st.markdown("---")
-
-# ---- Report ----
-st.subheader("Report (reports/report.json)")
-report = None
-if report_path.exists():
-    report = read_json(report_path)
-    st.json(report)
-else:
-    st.info("reports/report.json not found yet (pipeline may not have run).")
-
-st.markdown("---")
-
-# ---- Highlights ----
-st.subheader("Highlights")
-
-if highlights_mp4.exists():
-    st.success("Highlights video found ✅")
-    st.video(str(highlights_mp4))
-    st.caption(str(highlights_mp4))
-else:
-    st.info("No highlights/highlights.mp4 yet.")
-
-# If report has exported clips, show them
-exported = []
-if report is not None and isinstance(report, dict):
-    exported = report.get("exported_highlights", []) or []
-
-if exported:
-    st.write(f"Exported highlight clips: **{len(exported)}**")
-    for item in exported:
-        filename = item.get("file")
-        reason = item.get("reason", "—")
-        start = item.get("start", "—")
-        end = item.get("end", "—")
-
-        clip_path = highlights_clips_dir / filename if filename else None
-        st.markdown(f"**{filename}**  \nReason: `{reason}` | {start}s → {end}s")
-        if clip_path and clip_path.exists():
-            st.video(str(clip_path))
-        else:
-            st.warning(f"Missing clip file: {clip_path}")
-else:
-    # fallback: show any mp4 clips in highlights/clips
-    if highlights_clips_dir.exists():
-        mp4s = sorted(highlights_clips_dir.glob("*.mp4"))
-        if mp4s:
-            st.info("Showing mp4 clips found in highlights/clips/")
-            for clip_path in mp4s:
-                st.caption(clip_path.name)
-                st.video(str(clip_path))
-        else:
-            st.info("No highlight clips found in highlights/clips/.")
-    else:
-        st.info("No highlights/clips folder found (it should exist after highlight export).")
 
 st.markdown("---")
 
@@ -339,4 +369,4 @@ if arts:
 else:
     st.info("No artifacts registered in DB for this match yet.")
 
-st.caption("MVP dashboard = viewer + debugging tool. As tracking/analytics get implemented, this becomes your verification UI.")
+st.caption("Dashboard = highlights + analytics (report, heatmap, movement) + source video, calibration, tracks, renders.")

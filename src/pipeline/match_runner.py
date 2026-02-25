@@ -68,13 +68,13 @@ def run_match(
         print("\n[01] Load calibration")
         stages.stage_01_load_calibration(out_dir, match["court_id"], video_path)
         print("\n[02] Player detection + tracking")
-        stages.stage_02_track(out_dir, video_path)
+        stages.stage_02_track(out_dir, video_path, match["court_id"])
         print("\n[03] Coordinate mapping")
         stages.stage_03_map(out_dir, match["court_id"])
         print("\n[04] Analytics report")
         stages.stage_04_report(out_dir, match)
         print("\n[05] Render overlays")
-        stages.stage_05_renders(out_dir)
+        stages.stage_05_renders(out_dir, video_path)
         print("\n[06] Export highlights")
         highlights_mp4 = stages.stage_06_highlights(
             out_dir,

@@ -196,9 +196,8 @@ Rough flow:
 4. **Run stages 01–06** (see `src/pipeline/stages.py`):
 
    - **Stage 01 – Court calibration**
-     - `stage_01_load_calibration(out_dir, video_path)`
-     - Uses `src.court.calibration` (homography load/save). Expects
-       `calibration/homography.json`. Stub-safe.
+     - Manual once per court; per-match light auto-check. See **[docs/COURT_CALIBRATION.md](docs/COURT_CALIBRATION.md)**.
+     - Loads from `data/courts/<court_id>/calibration/`; runs `quick_check`; on FAIL tries `auto_fix` then manual; copies H to match dir when OK/WARN/fixed.
 
    - **Stage 02 – Player detection + tracking**
      - `stage_02_player_detection_tracking(out_dir, video_path)`
@@ -335,6 +334,7 @@ Code: `src/cloud/storage_r2.py`, `src/cloud/upload.py`. Dependency: `boto3` (in 
 
 - **Environment**: Python 3.9+ (3.10+ recommended). FFmpeg + ffprobe on PATH.
 - **Install**: `python3 -m pip install -r requirements.txt`
+- **How to test**: See **[docs/TESTING.md](docs/TESTING.md)** for ingest, run-match, calibration, API, dashboard, and upload.
 - **API**: `python3 -m uvicorn src.app.api:app --reload` → then open http://127.0.0.1:8000/docs or http://127.0.0.1:8000/view?match_id=xxx
 - **Ops dashboard**: `python3 -m streamlit run dashboard/app.py`
 - **Process all FINALIZED matches**: `python3 -m src.app.cli daily-check`

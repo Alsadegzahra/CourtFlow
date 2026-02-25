@@ -175,50 +175,87 @@
           }
           reportRaw.textContent = JSON.stringify(report, null, 2);
 
-          // Match structure (Phase 1)
+          // Match structure + analytics summary
           const summary = report.summary || {};
           const video = report.video || {};
           const duration = summary.match_duration_seconds != null ? summary.match_duration_seconds : video.duration_seconds;
-          matchStructure.innerHTML = [
+          const metrics = [
             { label: 'Match duration', value: fmtDuration(duration) },
             { label: 'Generated', value: report.generated_at || '—' },
-          ].map(function (m) {
+          ];
+          if (summary.total_track_points != null) {
+            metrics.push({ label: 'Track points', value: summary.total_track_points });
+            metrics.push({ label: 'Players (IDs)', value: summary.num_players != null ? summary.num_players : '—' });
+            metrics.push({ label: 'Total distance', value: summary.total_distance != null ? summary.total_distance : '—' });
+            metrics.push({ label: 'Track duration', value: summary.total_duration_s != null ? summary.total_duration_s + ' s' : '—' });
+          }
+          matchStructure.innerHTML = metrics.map(function (m) {
             return '<div class="metric"><div class="label">' + m.label + '</div><div class="value">' + (m.value || '—') + '</div></div>';
           }).join('');
 
-          // Positional intelligence (Phase 1) — show data when present, else placeholder
+          // Positional intelligence: court heatmap + per-player movement
           const players = report.players || {};
           const team = report.team || {};
-          const hasPositional = Object.keys(players).length > 0 || Object.keys(team).length > 0;
-          if (hasPositional) {
-            positionalIntel.innerHTML = '<div class="grid">' +
+          const hasPlayers = Object.keys(players).length > 0;
+          const hasTeam = Object.keys(team).length > 0 && (team.zone_coverage || team.net_vs_baseline_pct != null);
+          let posHtml = '';
+          if (summary.total_track_points > 0) {
+            const heatmapUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
+            posHtml += '<p class="muted" style="margin-bottom: 0.5rem;">Court heatmap (position density)</p>';
+            posHtml += '<img src="' + heatmapUrl + '" alt="Court heatmap" style="max-width: 100%; border-radius: 0.25rem; border: 1px solid var(--border);" onerror="this.style.display=\'none\'">';
+          }
+          if (hasPlayers) {
+            posHtml += '<p class="muted" style="margin-top: 1rem;">Per-player movement</p>';
+            posHtml += '<table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;"><thead><tr style="text-align: left; border-bottom: 1px solid var(--border);"><th style="padding: 0.5rem;">Player</th><th style="padding: 0.5rem;">Distance</th><th style="padding: 0.5rem;">Duration</th><th style="padding: 0.5rem;">Avg speed</th><th style="padding: 0.5rem;">Points</th></tr></thead><tbody>';
+            Object.keys(players).sort(function (a, b) { return Number(a) - Number(b); }).forEach(function (pid) {
+              const p = players[pid];
+              posHtml += '<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem;">' + pid + '</td><td style="padding: 0.5rem;">' + (p.distance != null ? p.distance : '—') + '</td><td style="padding: 0.5rem;">' + (p.duration_s != null ? p.duration_s + ' s' : '—') + '</td><td style="padding: 0.5rem;">' + (p.avg_speed != null ? p.avg_speed : '—') + '</td><td style="padding: 0.5rem;">' + (p.point_count != null ? p.point_count : '—') + '</td></tr>';
+            });
+            posHtml += '</tbody></table>';
+          }
+          if (hasTeam) {
+            posHtml += '<div class="grid" style="margin-top: 1rem;">' +
               (team.zone_coverage ? '<div class="metric"><div class="label">Zone coverage</div><div class="value">Available</div></div>' : '') +
               (team.net_vs_baseline_pct != null ? '<div class="metric"><div class="label">Net vs baseline %</div><div class="value">' + team.net_vs_baseline_pct + '%</div></div>' : '') +
               '</div>';
+          }
+          if (posHtml) {
+            positionalIntel.innerHTML = posHtml;
           } else {
-            positionalIntel.innerHTML = '<p class="placeholder">Heatmaps, zone coverage, net vs baseline %, and team spacing will appear here once tracking is run.</p>';
+            positionalIntel.innerHTML = '<p class="placeholder">Heatmap and per-player stats will appear here once tracking and analytics have run.</p>';
           }
 
-          // Physical load (Phase 1)
-          const hasPhysical = summary.total_distance_m != null || summary.avg_speed_kmh != null || summary.sprint_count != null;
+          // Physical load (use new summary fields when present)
+          const hasPhysical = summary.total_distance != null || summary.total_duration_s != null || summary.total_distance_m != null || summary.avg_speed_kmh != null || summary.sprint_count != null;
           if (hasPhysical) {
             physicalLoad.innerHTML = '<div class="grid">' +
-              (summary.total_distance_m != null ? '<div class="metric"><div class="label">Distance</div><div class="value">' + summary.total_distance_m + ' m</div></div>' : '') +
+              (summary.total_distance != null ? '<div class="metric"><div class="label">Total distance</div><div class="value">' + summary.total_distance + '</div></div>' : '') +
+              (summary.total_duration_s != null ? '<div class="metric"><div class="label">Track duration</div><div class="value">' + summary.total_duration_s + ' s</div></div>' : '') +
+              (summary.total_distance_m != null ? '<div class="metric"><div class="label">Distance (m)</div><div class="value">' + summary.total_distance_m + ' m</div></div>' : '') +
               (summary.avg_speed_kmh != null ? '<div class="metric"><div class="label">Avg speed</div><div class="value">' + summary.avg_speed_kmh + ' km/h</div></div>' : '') +
               (summary.sprint_count != null ? '<div class="metric"><div class="label">Sprints</div><div class="value">' + summary.sprint_count + '</div></div>' : '') +
               '</div>';
           } else {
-            physicalLoad.innerHTML = '<p class="placeholder">Total distance, speed, sprint count, and intensity timeline will appear here once movement analytics are available.</p>';
+            physicalLoad.innerHTML = '<p class="placeholder">Total distance, speed, and intensity will appear here once movement analytics are available.</p>';
           }
 
-          // Highlights: cloud link + exported clips
+          // Highlights: video (cloud URL or local) + link + exported clips list
           let highlightsHtml = '';
+          let videoUrl = null;
           const urlsRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/cloud/urls');
           if (urlsRes.ok) {
             const urls = await urlsRes.json();
-            if (urls.highlights_url) {
-              highlightsHtml += '<p><a class="video-link" href="' + urls.highlights_url + '" target="_blank" rel="noopener">Watch highlight reel</a></p>';
+            videoUrl = urls.highlights_url || null;
+          }
+          if (!videoUrl) {
+            const localRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video', { method: 'HEAD' });
+            if (localRes.ok) {
+              videoUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video';
             }
+          }
+          if (videoUrl) {
+            highlightsHtml += '<p><a class="video-link" href="' + videoUrl + '" target="_blank" rel="noopener">Watch highlight reel</a></p>';
+            highlightsHtml += '<video src="' + videoUrl + '" controls style="width: 100%; max-width: 40rem; border-radius: 0.25rem; margin-top: 0.5rem; border: 1px solid var(--border);" preload="metadata">Your browser does not support the video tag.</video>';
           }
           const exported = report.exported_highlights || [];
           if (exported.length > 0) {
@@ -229,7 +266,7 @@
             highlightsHtml += '</ul>';
           }
           if (!highlightsHtml) {
-            highlightsHtml = '<p class="placeholder">Highlight reel will appear here once uploaded. Motion-based clips are generated from movement intensity.</p>';
+            highlightsHtml = '<p class="placeholder">Highlight reel will appear here once uploaded. Run the pipeline and upload to cloud to get a shareable link.</p>';
           }
           highlightsBlock.innerHTML = highlightsHtml;
         } catch (e) {

@@ -11,6 +11,16 @@ from src.domain.models import CalibrationHomography
 from src.utils.io import read_json
 
 
+def identity_homography(image_width: int, image_height: int) -> CalibrationHomography:
+    """Identity 3x3 (pixel = court in normalized 0-1 if scaled). Row-major."""
+    return CalibrationHomography(
+        schema_version="1",
+        homography=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        image_width=image_width,
+        image_height=image_height,
+    )
+
+
 def load_homography(path: Path) -> Optional[CalibrationHomography]:
     """Load homography from JSON. Returns None if file missing."""
     if not path.exists():
@@ -23,11 +33,14 @@ def save_homography(path: Path, calib: CalibrationHomography) -> None:
     """Save homography to JSON."""
     from src.utils.io import ensure_dir, write_json
     ensure_dir(path.parent)
-    write_json(path, {
+    payload = {
         "schema_version": calib.schema_version,
         "homography": calib.homography,
         "image_width": calib.image_width,
         "image_height": calib.image_height,
-        "court_width_m": calib.court_width_m,
-        "court_height_m": calib.court_height_m,
-    })
+    }
+    if calib.court_width_m is not None:
+        payload["court_width_m"] = calib.court_width_m
+    if calib.court_height_m is not None:
+        payload["court_height_m"] = calib.court_height_m
+    write_json(path, payload)

@@ -172,6 +172,30 @@ def get_match_report(match_id: str) -> dict:
     raise HTTPException(status_code=404, detail="Report not found")
 
 
+@app.get("/matches/{match_id}/report/heatmap", tags=["reports"])
+def get_match_report_heatmap(match_id: str):
+    """Serve court heatmap image for the user dashboard. 404 if not generated."""
+    row = db.get_match(match_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Match not found")
+    heatmap_path = Path(row["output_dir"]) / "reports" / "heatmap.png"
+    if not heatmap_path.exists():
+        raise HTTPException(status_code=404, detail="Heatmap not found")
+    return FileResponse(heatmap_path, media_type="image/png")
+
+
+@app.get("/matches/{match_id}/highlights/video", tags=["reports"])
+def get_match_highlights_video(match_id: str):
+    """Serve highlights.mp4 for the user dashboard (local only; use cloud/urls when deployed)."""
+    row = db.get_match(match_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Match not found")
+    video_path = Path(row["output_dir"]) / "highlights" / "highlights.mp4"
+    if not video_path.exists():
+        raise HTTPException(status_code=404, detail="Highlights video not found")
+    return FileResponse(video_path, media_type="video/mp4")
+
+
 @app.get("/matches/{match_id}/meta", tags=["reports"])
 def get_match_meta(match_id: str) -> dict:
     row = db.get_match(match_id)

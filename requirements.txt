@@ -7,3 +7,5 @@ numpy>=1.24
 streamlit>=1.28
 boto3>=1.28
 python-dotenv>=1.0
+ultralytics>=8.0
+lap>=0.5  # required by ultralytics ByteTrack

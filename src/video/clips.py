@@ -49,7 +49,9 @@ def concat_clips(clip_paths: List[Path], output_video: Path) -> None:
             raise FileNotFoundError(f"Clip not found: {p}")
     output_video.parent.mkdir(parents=True, exist_ok=True)
     list_file = output_video.parent / "concat_list.txt"
-    list_file.write_text("\n".join([f"file '{p.as_posix()}'" for p in clip_paths]) + "\n", encoding="utf-8")
+    # Use absolute paths so FFmpeg finds clips regardless of cwd (concat demuxer resolves relative to cwd)
+    lines = ["file '{}'".format(p.resolve().as_posix()) for p in clip_paths]
+    list_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
     cmd = [
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac",
