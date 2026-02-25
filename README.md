@@ -1,34 +1,86 @@
 ## CourtFlow – Phase 1 Skeleton
 
 CourtFlow is an MVP system for turning raw match video into structured
-analytics and highlight videos. This repo now contains a **full skeleton +
-contracts** for the entire pipeline and cloud stack so that model/infra
-teams can plug in their logic without rewriting glue code.
+analytics and highlight videos. This repo uses a **unified structure**:
+`src/app` (CLI + API), `src/pipeline` (match_runner + stages), `src/court`,
+`src/video`, `src/vision`, `src/storage`, `src/analytics`, `src/highlights`,
+`src/cloud`, `src/domain`, `src/config`, `src/utils`. Data lives under
+`data/courts/` and `data/matches/`.
 
-This README is written for teammates who will implement the actual
-intelligence (vision models, analytics, cloud upload, dashboards).
+---
+
+### What’s working now
+
+- **End-to-end pipeline**: Ingest video → run match (stages 01–06) → report + highlights. Match state and artifacts stored in SQLite.
+- **CLI**: `calibrate-court` (stub), `ingest-match`, `run-match`, `daily-check`, `upload-match` (R2).
+- **API (FastAPI)**: Health, list/get matches, match report, meta, artifacts, cloud upload and presigned URLs. Serves user dashboard at `/view`.
+- **User dashboard (Phase 1)**: Single URL `/view?match_id=xxx` — AI Movement Intelligence report (match structure, positional, physical load) and highlights. Shareable link; no login.
+- **Ops dashboard (Streamlit)**: Full internal view — Court ID + Match ID or list, source video, meta, tracks, report, highlights, cloud upload, artifacts.
+- **Cloud (R2)**: Upload highlights + report to Cloudflare R2; presigned links for viewing. Env-based config via `.env`.
+
+### Tools used
+
+| Layer | Tools |
+|-------|------|
+| **Language & runtime** | Python 3 (3.9+; 3.10+ recommended) |
+| **API** | FastAPI, Uvicorn |
+| **Ops dashboard** | Streamlit |
+| **User UI** | Single HTML page (`dashboard/view.html`) + Fetch API (no framework) |
+| **DB** | SQLite (match registry, artifacts) |
+| **Video** | OpenCV (headless), FFmpeg / ffprobe (ingest, clips, concat) |
+| **Cloud storage** | Cloudflare R2 (S3-compatible, boto3) |
+| **Config** | `python-dotenv` (`.env`), `src/config/settings.py` |
+
+---
+
+### How to run
+
+1. **Calibrate court** (stub for now):  
+   `python -m src.app.cli calibrate-court --court_id court_001`
+
+2. **Ingest a match** (create match + copy/re-encode to `data/matches/<id>/raw/match.mp4`):  
+   `python -m src.app.cli ingest-match --court_id court_001 --input /path/to/video.mp4`
+
+3. **Process the match** (run pipeline → report + highlights):  
+   `python -m src.app.cli run-match`  
+   (uses latest FINALIZED match) or  
+   `python -m src.app.cli run-match --match_id match_2026_02_24_01`
+
+4. **Optional: process all FINALIZED matches**:  
+   `python -m src.app.cli daily-check`
+
+5. **API**:  
+   `python3 -m uvicorn src.app.api:app --reload`  
+   Then open http://127.0.0.1:8000/docs in your browser for Swagger.
+
+6. **Ops dashboard (Streamlit)**:  
+   `python3 -m streamlit run dashboard/app.py`  
+   Use **Court ID** (optional) + **Match ID** and click **View dashboard**, or pick from the list.
+
+7. **User dashboard (link UI)** – with the API running, open in a browser:  
+   `http://127.0.0.1:8000/view?match_id=<id>`  
+   Optional: `&court_id=<id>`. One shareable link; no login.
+
+8. **Upload to cloud (R2)** – after run-match, if R2 is configured:  
+   `python3 -m src.app.cli upload-match --match_id <id>`
 
 ---
 
 ## High-level architecture
 
 - **Video processing (edge)**: Python + FFmpeg + OpenCV
-- **Local DB**: SQLite (for ops / local runs)
-- **Cloud storage (planned)**: Cloudflare R2
-- **Cloud DB (planned)**: Supabase
-- **API backend (planned)**: FastAPI
-- **Ops dashboard**: Streamlit
-- **Coach dashboard (planned)**: Next.js
-
-For now, everything runs locally with SQLite + filesystem storage. Cloud
-pieces are defined as interfaces and stubs.
+- **Local DB**: SQLite (match registry, artifacts)
+- **Cloud storage**: Cloudflare R2 (highlights + report; presigned URLs)
+- **API**: FastAPI (matches, report, meta, artifacts, cloud upload, `/view` user UI)
+- **Ops dashboard**: Streamlit (full internal view)
+- **User UI**: Single-page dashboard at `/view` (Phase 1 report + highlights)
 
 ---
 
 ## Data contracts (source of truth)
 
 All core contracts live in `src/domain/models.py` (Python dataclasses) and
-are surfaced as simple helpers in `src/schemas.py`.
+`src/domain/report_contract.py` (empty_report, empty_tracks).
 
 - **DB entities**
   - `Court`: `court_id`, `site_name`, timestamps.
@@ -44,7 +96,7 @@ are surfaced as simple helpers in `src/schemas.py`.
     - `x_pixel`, `y_pixel` (image space)
     - `x_court`, `y_court` (court space, may be `None` before calibration)
   - `Tracks = list[TrackRecord]`
-  - Helper: `empty_tracks()` in `src/schemas.py` returns an empty, contract-shaped list.
+  - Helper: `empty_tracks()` in `src/domain/report_contract.py` returns an empty list.
 
 - **Calibration**
   - `CalibrationHomography`:
@@ -52,7 +104,7 @@ are surfaced as simple helpers in `src/schemas.py`.
     - `homography`: 9 floats (3×3 row-major)
     - `image_width`, `image_height`
     - optional `court_width_m`, `court_height_m`
-  - Stored as JSON at `output_dir/calibration/homography.json`.
+  - Stored as JSON at `data/courts/<court_id>/calibration/homography.json` (or match dir for legacy).
 
 - **Highlights + report**
   - `HighlightSegment`: `start`, `end`, `reason`.
@@ -68,7 +120,7 @@ are surfaced as simple helpers in `src/schemas.py`.
     - `status`: processing status for the report
   - Helpers:
     - `new_phase1_report(...)` in `domain/models.py` builds the dataclass.
-    - `empty_report(...)` in `src/schemas.py` returns a plain `dict` for JSON.
+    - `empty_report(...)` in `src/domain/report_contract.py` returns a plain `dict` for JSON.
 
 These contracts should remain stable. Intelligence modules should **conform
 to them**, not modify them.
@@ -77,65 +129,46 @@ to them**, not modify them.
 
 ## Pipeline overview
 
-Entry point: `src/pipeline/pipeline.py` → `run_pipeline_for_match(match_id)`.
+Entry point: `src/pipeline/match_runner.py` → `run_match(match_id)` (or via `src.app.cli run-match`).
 
 Rough flow:
 
-1. **Look up match** in SQLite via `b2_storage.db.get_match`.
-2. **Ensure output dirs** via `b2_storage.match_store.ensure_match_dirs`.
-3. **Ensure `meta/` + `reports/` exist** via `_ensure_meta_and_report`.
-4. **Run stages 01–06**:
+1. **Look up match** in SQLite via `src.storage.match_db.get_match`.
+2. **Ensure output dirs** via `src.pipeline.paths.ensure_match_dirs`.
+3. **Ensure `meta/` + `reports/` exist** via match_runner helpers.
+4. **Run stages 01–06** (see `src/pipeline/stages.py`):
 
    - **Stage 01 – Court calibration**
-     - Function: `stage_01_load_calibration(out_dir, video_path)`
-     - Calls `b4_court_model.calibration.load_or_estimate_calibration(...)`.
-     - Expects a `CalibrationHomography`, saved to
-       `calibration/homography.json`.
-     - If B4 is not implemented yet (raises `NotImplementedError`), the
-       stage logs a stub message and continues.
+     - `stage_01_load_calibration(out_dir, video_path)`
+     - Uses `src.court.calibration` (homography load/save). Expects
+       `calibration/homography.json`. Stub-safe.
 
    - **Stage 02 – Player detection + tracking**
-     - Function: `stage_02_player_detection_tracking(out_dir, video_path)`
-     - Calls `b5_player_tracking.tracking.run_player_tracking(...)`.
-     - Expects a `Tracks` list serialized as JSON at
-       `tracks/tracks.json` (list of `TrackRecord`-shaped dicts).
-     - On `NotImplementedError`, logs a stub message.
+     - `stage_02_player_detection_tracking(out_dir, video_path)`
+     - Uses `src.vision` (detection, tracking). Writes `tracks/tracks.json`.
+     - Stub-safe.
 
    - **Stage 03 – Coordinate mapping (pixel → court)**
-     - Function: `stage_03_coordinate_mapping(out_dir)`
-     - If `tracks/tracks.json` and `calibration/homography.json` are both
-       present:
-       - Loads `CalibrationHomography` from JSON.
-       - Calls `b5b_coord_conversion.coords.apply_calibration_to_tracks(...)`
-         to fill `x_court` / `y_court` on each `TrackRecord`.
-     - On `NotImplementedError` or missing files, logs and skips.
+     - `stage_03_coordinate_mapping(out_dir)`
+     - Loads homography + tracks; uses `src.vision.mapping` to fill
+       `x_court` / `y_court`. Stub-safe.
 
    - **Stage 04 – Analytics report**
-     - Function: `stage_04_analytics_report(out_dir, match)`
-     - Calls `b6_movement_metrics.analytics.build_phase1_report(...)`.
-     - Currently writes a **placeholder** `reports/report.json` using
-       `empty_report(...)`, but is the place where real analytics will live.
+     - `stage_04_analytics_report(out_dir, match)`
+     - Uses `src.analytics.report.build_phase1_report`. Writes
+       `reports/report.json` (placeholder until analytics filled).
 
    - **Stage 05 – Renders / overlays**
-     - Function: `stage_05_render_overlays(out_dir)`
-     - Currently a stub that only logs. Future Z-team code will generate
-       images/videos in `renders/` and update the report’s `renders` field.
+     - `stage_05_render_overlays(out_dir)` — stub; future: heatmaps etc. in `renders/`.
 
    - **Stage 06 – Highlight export**
-     - Function: `stage_06_export_highlights(out_dir, cfg)`
-     - Logic:
-       - Reads `meta/meta.json` and `reports/report.json`.
-       - Uses `report["highlights"]` if present; otherwise, generates
-         time-sampled dummy clips.
-       - Cuts individual clips with FFmpeg into `highlights/clips/`.
-       - Concatenates them into `highlights/highlights.mp4`.
-       - Writes `exported_highlights` and `highlights_mp4` back into
-         `report.json`.
+     - `stage_06_export_highlights(out_dir, cfg)`
+     - Reads report; selects highlights (or time-sampled); cuts clips via
+       `src.video.clips`; concat to `highlights/highlights.mp4`; updates report.
 
 5. **Artifact registration**
-   - When the pipeline finishes, it registers a `HIGHLIGHTS_MP4` artifact
-     in SQLite via `add_artifact(...)`.
-   - The Streamlit dashboard reads this to show what was produced.
+   - Registers `HIGHLIGHTS_MP4` in SQLite via `add_artifact(...)`.
+   - Streamlit dashboard shows artifacts and outputs.
 
 All intelligence stages are wired but safe: if a team has not implemented
 their module yet and raises `NotImplementedError`, the pipeline logs a
@@ -143,104 +176,95 @@ stub message and continues where possible.
 
 ---
 
-## Intelligence modules (what each team owns)
+## Intelligence modules (where to plug in)
 
-All of these modules are **pure skeletons** with clear TODOs and
-docstrings. Teams plug in their logic here.
+Skeletons live under `src/court`, `src/vision`, `src/analytics`. Implement here; pipeline stays unchanged.
 
-- **B4 – Court model**
-  - File: `src/b4_court_model/calibration.py`
-  - Responsibilities:
-    - Run a court detection / calibration model on the input video.
-    - Produce a `CalibrationHomography`.
-    - Load or reuse existing calibration if appropriate.
+- **Court calibration**
+  - `src/court/calibration/` — homography load/save, ROI, quick_check, capture, distortion.
+  - Produce/store `CalibrationHomography` at `data/courts/<court_id>/calibration/` or match dir.
 
-- **B5 – Player tracking**
-  - File: `src/b5_player_tracking/tracking.py`
-  - Responsibilities:
-    - Run player detector + tracker on the video.
-    - Produce a list of `TrackRecord` entries (conforming to the contract).
-    - Serialize to `tracks/tracks.json`.
-    - Optionally, enrich `validate_tracks_contract(...)` with stricter checks.
+- **Detection & tracking**
+  - `src/vision/detection/` (e.g. YOLO), `src/vision/tracking/` (MOT, ground_point, canonical_ids).
+  - Output: `TrackRecord` list → `tracks/tracks.json`.
 
-- **B5b – Coordinate conversion**
-  - File: `src/b5b_coord_conversion/coords.py`
-  - Responsibilities:
-    - Load tracks from JSON.
-    - Use `CalibrationHomography` to compute `x_court` / `y_court` for each
-      track.
-    - Write updated tracks back with an atomic JSON write.
-  - Helpers:
-    - `load_tracks_from_json(...)` and `dump_tracks_to_json(...)` centralize
-      JSON ↔ dataclass conversions.
+- **Coordinate mapping**
+  - `src/vision/mapping/img_to_court.py` — pixel → court using homography.
+  - Fill `x_court` / `y_court` on tracks.
 
-- **B6 – Movement metrics & analytics**
-  - File: `src/b6_movement_metrics/analytics.py`
-  - Responsibilities:
-    - Start from `empty_report(...)` / `Phase1Report`.
-    - Read tracks + calibration.
-    - Fill:
-      - `summary` / `players` / `team` with Phase 1 movement + spatial metrics:
-        - Match duration (time model)
-        - Heatmaps per player
-        - Zone coverage distribution (court zones)
-        - Net vs baseline percentage
-        - Team spacing visualization
-        - Coverage gap detection
-        - Positional drift over match
-        - Transition frequency (baseline → net)
-        - Positional efficiency score (composite index)
-        - Distance covered
-        - Average and maximum speed
-        - Sprint count
-        - Acceleration / deceleration indicators
-        - Lateral movement percentage
-        - Movement intensity timeline
-        - Load distribution across the match (early / mid / late)
-        - Motion-based fatigue / intensity drop-off trends
-      - `renders` (filenames under `renders/`, e.g. heatmaps, spacing visuals)
-      - `highlights` (movement-intensity-based `HighlightSegment`s that drive Stage 06)
+- **Analytics (Phase 1 report)**
+  - `src/analytics/report.py` — `build_phase1_report(...)`.
+  - Start from `empty_report()`; read tracks + calibration.
+  - Fill `summary`, `players`, `team`: match duration, heatmaps, zone coverage, net vs baseline %, team spacing, distance, speed, sprints, intensity timeline, etc.
+  - Fill `renders` (paths to heatmaps etc.) and `highlights` (movement-based `HighlightSegment`s for Stage 06).
 
 ---
 
-## Cloud upload & storage (planned)
+## Cloud upload (R2)
 
-The cloud layer is defined but mostly stubbed, so infra can plug in real
-Cloudflare R2 / Supabase without changing the pipeline.
+Cloudflare R2 is wired for uploading match artifacts and serving presigned links from the API and dashboard.
 
-- **Upload helper**
-  - File: `src/b8_cloud_upload/uploader.py`
-  - `BlobStorage` protocol:
-    - `put_object(key: str, file_path: Path) -> str`  
-      Uploads a local file under `key`, returns a URL or path string.
-  - `upload_artifact_via_storage(artifact, storage)`:
-    - Builds a storage key from `match_id`, artifact `type`, and filename.
-    - Calls `storage.put_object(...)`.
-    - Returns the resulting URL (and later can update the DB).
+### What you need from Cloudflare
 
-- **Storage backends**
-  - File: `src/b9_cloud_storage/storage.py`
-  - `LocalBlobStorage`:
-    - Copies files to a local base directory; good for dev/testing.
-  - `R2BlobStorage`:
-    - Stub to be implemented with Cloudflare R2 SDK/API.
+1. **Create an R2 bucket**  
+   Cloudflare Dashboard → **R2** → **Create bucket** → pick a name (e.g. `courtflow`). You’ll use this as `R2_BUCKET`.
+
+2. **Create an API token**  
+   R2 → **Manage R2 API Tokens** → **Create API token**  
+   - Permissions: **Object Read & Write**  
+   - Copy the **Access Key ID** and **Secret Access Key** (secret is shown once).
+
+3. **Account ID**  
+   In the Cloudflare dashboard, open any R2 page; the URL looks like  
+   `https://dash.cloudflare.com/<ACCOUNT_ID>/r2/...`  
+   Use that `<ACCOUNT_ID>` as `R2_ACCOUNT_ID`.
+
+### .env setup
+
+Copy the example and fill in the R2 values:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set (no quotes needed):
+
+```
+R2_ACCESS_KEY_ID=your_access_key_from_step_2
+R2_SECRET_ACCESS_KEY=your_secret_key_from_step_2
+R2_BUCKET=courtflow
+R2_ACCOUNT_ID=your_account_id_from_step_3
+```
+
+Save the file. The app loads `.env` automatically (no need to export in the shell).
+
+### How to upload and get links
+
+- **CLI**: After `run-match`, run  
+  `python3 -m src.app.cli upload-match --match_id <id>`
+- **API**: `POST /matches/{match_id}/cloud/upload` uploads and returns presigned URLs.  
+  `GET /matches/{match_id}/cloud/urls` returns presigned URLs for highlights and report (1h default).
+- **Dashboard**: Open the **Cloud (R2)** section → **Upload to R2**, then **Get cloud links** to watch highlights from R2. (API must be running: `python3 -m uvicorn src.app.api:app --reload`.)
+
+Code: `src/cloud/storage_r2.py`, `src/cloud/upload.py`. Dependency: `boto3` (in requirements.txt).
 
 ---
 
 ## Dashboards and DB layer
 
-These components already work and are left mostly unchanged; they now sit
-on top of the clearer contracts.
-
 - **SQLite DB + match store**
-  - File: `src/b2_storage/db.py`
+  - File: `src/storage/match_db.py`
     - Manages `courts`, `matches`, `artifacts` tables.
-  - File: `src/b2_storage/match_store.py`
-    - Defines the standard `data/outputs/<match_id>/` layout.
+  - Data layout: `data/matches/<match_id>/` (see `src/pipeline/paths.py`).
+
+- **Why Streamlit (and when to use something else)**
+  - **Streamlit** is used for the ops dashboard because it’s Python-only and fast to build for internal/ops use. It’s less suited to polished public URLs and deep customization.
+  - **Common for production user-facing dashboards**: a **React/Next.js** (or Vue) front end calling your API, with routes like `/court/:courtId/match/:matchId`. That gives full control over layout, SEO, and shareable links.
+  - **User UI (Phase 1 only)**: the API serves a **single-page user dashboard** at **`/view?match_id=xxx`** (optional `&court_id=xxx`). It shows only what Phase 1 defines for users: **AI Movement Intelligence Report** (match structure, positional intelligence, physical load) and **Highlights** (reel + clips). No ops details, raw DB state, or internal fields. File: `dashboard/view.html`.
 
 - **Ops dashboard (Streamlit)**
   - File: `dashboard/app.py`
-  - Lets ops view:
+  - User enters **Court ID** (optional) + **Match ID** and clicks **View dashboard**, or selects from the list. Lets ops view:
     - Matches and their states.
     - Source video.
     - `meta/meta.json`, `tracks/tracks.json`, `calibration/homography.json`,
@@ -248,39 +272,17 @@ on top of the clearer contracts.
     - `highlights/highlights.mp4` + per-clip videos.
     - Files in `renders/`.
 
-Future work will introduce a FastAPI backend and a separate Next.js coach
-dashboard that consume these same contracts.
-
 ---
 
-## Running locally (current state)
+## Running locally
 
-> Note: exact commands may evolve; this reflects the current intent.
+- **Environment**: Python 3.9+ (3.10+ recommended). FFmpeg + ffprobe on PATH.
+- **Install**: `python3 -m pip install -r requirements.txt`
+- **API**: `python3 -m uvicorn src.app.api:app --reload` → then open http://127.0.0.1:8000/docs or http://127.0.0.1:8000/view?match_id=xxx
+- **Ops dashboard**: `python3 -m streamlit run dashboard/app.py`
+- **Process all FINALIZED matches**: `python3 -m src.app.cli daily-check`
 
-- **Environment**
-  - Python 3.10+ recommended.
-  - FFmpeg + ffprobe installed and on PATH.
-
-- **Install dependencies**
-
-```bash
-pip install -r requirements.txt  # if present
-```
-
-- **Run the controller loop (process FINALIZED matches)**
-
-```bash
-python -m src.b3_controller.controller
-```
-
-- **Run the Streamlit dashboard**
-
-```bash
-streamlit run dashboard/app.py
-```
-
-At this stage, most intelligence stages are placeholders; you should still
-see matches, meta, and dummy highlights once the pipeline runs.
+Intelligence stages (court, vision, analytics) are stubs; you still get matches, meta, placeholder report, and time-sampled highlights from the pipeline.
 
 ---
 
@@ -306,11 +308,8 @@ see matches, meta, and dummy highlights once the pipeline runs.
 
 ## Next steps
 
-- Implement the B4/B5/B5b/B6 intelligence modules against real or pretrained
-  models.
-- Add a FastAPI backend that exposes matches, artifacts, and reports via a
-  stable API.
-- Add Cloudflare R2 + Supabase integrations using the BlobStorage and
-  repository interfaces.
-- Build a Next.js coach dashboard on top of the API.
+- Implement court calibration, detection/tracking, and analytics in
+  `src/court`, `src/vision`, `src/analytics` (real homography, YOLO/MOT, movement metrics).
+- Deploy API + `/view` so users can open the shareable link from anywhere.
+- Optional: React/Next.js coach dashboard on top of the same API.
 

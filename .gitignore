@@ -2,13 +2,31 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
+.pytest_cache/
 
-# Outputs
+# Data and outputs (do not commit matches or large videos)
+data/
 outputs/
 input_videos/
+*.mp4
+*.mov
+
+# Models (weights can be large)
+models/
+*.pt
+*.onnx
+
+# Env and secrets
+.env
+.env.local
 
 # Mac
 .DS_Store
 
 # Streamlit cache
 .streamlit/
+
+# IDE
+.idea/
+*.swp

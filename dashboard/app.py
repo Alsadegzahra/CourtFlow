@@ -1,16 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-import json
 import streamlit as st
 
-from src.b2_storage.db import list_matches, get_match, list_artifacts
-from src.common.config import PROJECT_ROOT, DATA_DIR
-
-
-def read_json(path: Path):
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+from src.storage.match_db import list_matches, get_match, list_artifacts
+from src.config.settings import PROJECT_ROOT, DATA_DIR
+from src.utils.io import read_json
 
 def safe_exists(p: Path) -> bool:
     try:
@@ -20,29 +15,75 @@ def safe_exists(p: Path) -> bool:
 
 
 st.set_page_config(page_title="CourtFlow Dashboard", layout="wide")
-st.title("CourtFlow — MVP Dashboard (DB + Outputs Viewer)")
 
+# ---- User entry: Court ID + Match ID ----
+if "user_match_id" not in st.session_state:
+    st.session_state["user_match_id"] = ""
+if "user_court_id" not in st.session_state:
+    st.session_state["user_court_id"] = ""
+
+st.sidebar.markdown("### View a match")
+court_id_input = st.sidebar.text_input(
+    "Court ID (optional)",
+    value=st.session_state["user_court_id"],
+    placeholder="e.g. court_01",
+    key="court_id_input",
+)
+match_id_input = st.sidebar.text_input(
+    "Match ID",
+    value=st.session_state["user_match_id"],
+    placeholder="e.g. match_2026_02_25_022906",
+    key="match_id_input",
+)
+col_go, col_clear = st.sidebar.columns(2)
+if col_go.button("View dashboard", type="primary"):
+    if (match_id_input or "").strip():
+        st.session_state["user_match_id"] = match_id_input.strip()
+        st.session_state["user_court_id"] = (court_id_input or "").strip()
+        st.rerun()
+if col_clear.button("Clear"):
+    st.session_state["user_match_id"] = ""
+    st.session_state["user_court_id"] = ""
+    st.rerun()
+
+st.sidebar.markdown("---")
+
+# ---- Resolve which match to show ----
+matches = list_matches(limit=200)
+match_ids = [m["match_id"] for m in matches]
+
+# Prefer user-entered ID; otherwise use dropdown if we have matches
+if st.session_state.get("user_match_id"):
+    selected_match_id = st.session_state["user_match_id"]
+elif matches:
+    selected_match_id = st.sidebar.selectbox("Or select from list (ops)", match_ids, key="select_match")
+else:
+    st.title("CourtFlow — User Dashboard")
+    st.info("Enter a **Match ID** in the sidebar and click **View dashboard** to open that match.")
+    st.caption("Example: `match_2026_02_25_022906`")
+    st.stop()
+
+st.title("CourtFlow — MVP Dashboard (DB + Outputs Viewer)")
 st.caption(f"Project root: {PROJECT_ROOT}")
 st.caption(f"Data dir: {DATA_DIR}")
 
-# ---- Load matches from DB ----
-matches = list_matches(limit=200)
-if not matches:
-    st.warning("No matches found in SQLite. Create a match and finalize it first.")
-    st.stop()
-
-match_ids = [m["match_id"] for m in matches]
-selected_match_id = st.sidebar.selectbox("Select a match", match_ids)
-
 match = get_match(selected_match_id)
 if not match:
-    st.error(f"Match not found: {selected_match_id}")
+    st.error(f"Match not found: **{selected_match_id}**. Check the ID or select from the list.")
+    if matches:
+        st.sidebar.selectbox("Or select from list (ops)", match_ids, key="select_match_fallback")
     st.stop()
+
+# If user set a court ID, check the match belongs to that court
+user_court = (st.session_state.get("user_court_id") or "").strip()
+if user_court and match.get("court_id") != user_court:
+    st.warning(f"This match belongs to court **{match.get('court_id')}**, not **{user_court}**.")
 
 output_dir = Path(match["output_dir"])
 source_uri = Path(match["source_uri"]) if match["source_type"] == "FILE" else None
 
 st.sidebar.markdown("---")
+st.sidebar.caption(f"Viewing: **{selected_match_id}**")
 st.sidebar.write("Selected match_id:")
 st.sidebar.code(selected_match_id)
 st.sidebar.write("Output dir:")
@@ -200,6 +241,81 @@ if renders_dir.exists():
                 st.video(str(p))
 else:
     st.info("No renders folder found (it should exist).")
+
+st.markdown("---")
+
+# ---- Cloud (R2) ----
+st.subheader("Cloud (R2)")
+import os
+import urllib.request
+import json as _json
+
+_api_url = os.getenv("COURTFLOW_API_URL", "http://127.0.0.1:8000").rstrip("/")
+
+def _api_get(path: str) -> tuple[dict | None, int, str]:
+    try:
+        req = urllib.request.Request(f"{_api_url}{path}", method="GET")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return _json.loads(r.read().decode()), r.status, ""
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode()
+            return None, e.code, body
+        except Exception:
+            return None, e.code, str(e)
+    except Exception as e:
+        return None, 0, str(e)
+
+def _api_post(path: str) -> tuple[dict | None, int, str]:
+    try:
+        req = urllib.request.Request(
+            f"{_api_url}{path}",
+            data=b"",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return _json.loads(r.read().decode()), r.status, ""
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode()
+            return None, e.code, body
+        except Exception:
+            return None, e.code, str(e)
+    except Exception as e:
+        return None, 0, str(e)
+
+if st.button("Upload to R2", key="cloud_upload"):
+    data, code, err = _api_post(f"/matches/{selected_match_id}/cloud/upload")
+    if code == 200 and data:
+        st.success("Uploaded to R2.")
+        if data.get("keys"):
+            st.code("\n".join(data["keys"]))
+        if data.get("urls"):
+            for k, u in data["urls"].items():
+                if u:
+                    st.markdown(f"**{k}**: [Open link]({u})")
+    elif code == 503:
+        st.error("R2 not configured. Set R2_* in .env (see README) and restart the API.")
+    else:
+        st.error(f"Upload failed: {code} {err}")
+
+if st.button("Get cloud links (1h)", key="cloud_urls"):
+    data, code, err = _api_get(f"/matches/{selected_match_id}/cloud/urls?expires_seconds=3600")
+    if code == 200 and data:
+        if data.get("highlights_url"):
+            st.markdown(f"**Highlights (cloud)**: [Watch highlights]({data['highlights_url']})")
+            st.video(data["highlights_url"])
+        else:
+            st.info("No highlights URL (upload first or check R2).")
+        if data.get("report_url"):
+            st.markdown(f"**Report (cloud)**: [Download report]({data['report_url']})")
+    elif code == 503:
+        st.warning("R2 not configured. Set R2_* in .env and restart the API.")
+    else:
+        st.error(f"Could not get URLs: {code} {err}")
+
+st.caption("API must be running: python3 -m uvicorn src.app.api:app --reload. Set COURTFLOW_API_URL if different.")
 
 st.markdown("---")
 

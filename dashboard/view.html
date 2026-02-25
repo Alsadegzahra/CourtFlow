@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CourtFlow — AI Movement Intelligence</title>
+  <style>
+    :root { --bg: #0f0f12; --card: #1a1a1f; --text: #e4e4e7; --muted: #71717a; --accent: #a78bfa; --border: #27272a; --green: #34d399; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 1.5rem; line-height: 1.5; }
+    .container { max-width: 56rem; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1rem; }
+    .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--accent); }
+    .card h3 { font-size: 0.875rem; font-weight: 600; margin: 1rem 0 0.5rem 0; color: var(--muted); }
+    .card h3:first-of-type { margin-top: 0; }
+    label { display: block; font-size: 0.875rem; color: var(--muted); margin-bottom: 0.25rem; }
+    input { width: 100%; max-width: 20rem; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text); font-size: 1rem; margin-bottom: 0.75rem; }
+    button { padding: 0.5rem 1rem; background: var(--accent); color: var(--bg); border: none; border-radius: 0.25rem; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
+    button:hover { filter: brightness(1.1); }
+    a { color: var(--accent); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0.75rem; margin-bottom: 0.5rem; }
+    .metric { background: var(--bg); padding: 0.75rem; border-radius: 0.25rem; }
+    .metric .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+    .metric .value { font-weight: 600; margin-top: 0.25rem; }
+    .error { color: #f87171; }
+    .muted { color: var(--muted); font-size: 0.875rem; }
+    .video-link { display: inline-block; margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--accent); color: var(--bg); border-radius: 0.25rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; }
+    .video-link:hover { filter: brightness(1.1); }
+    .clip-list { list-style: none; padding: 0; margin: 0; }
+    .clip-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    .clip-list li:last-child { border-bottom: none; }
+    .placeholder { color: var(--muted); font-style: italic; font-size: 0.875rem; }
+    details { margin-top: 1rem; }
+    details summary { cursor: pointer; color: var(--muted); font-size: 0.875rem; }
+    pre { background: var(--bg); padding: 1rem; border-radius: 0.25rem; overflow: auto; font-size: 0.75rem; margin: 0.5rem 0 0 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CourtFlow — AI Movement Intelligence</h1>
+    <p class="subtitle">View your post-match movement and positional report.</p>
+
+    <div class="card" id="form-card">
+      <h2>Open a match</h2>
+      <label for="court-id">Court ID (optional)</label>
+      <input type="text" id="court-id" placeholder="e.g. court_01" autocomplete="off">
+      <label for="match-id">Match ID</label>
+      <input type="text" id="match-id" placeholder="e.g. match_2026_02_25_022906" autocomplete="off">
+      <button type="button" id="btn-view">View report</button>
+    </div>
+
+    <div id="content" style="display: none;">
+      <div class="card">
+        <h2>Match</h2>
+        <div class="grid" id="match-header"></div>
+      </div>
+
+      <div class="card">
+        <h2>AI Movement Intelligence Report</h2>
+        <p class="muted">Spatial movement and positional intelligence — Phase 1. No rally or ball tracking.</p>
+
+        <h3>Match structure</h3>
+        <div class="grid" id="match-structure"></div>
+
+        <h3>Positional intelligence</h3>
+        <div id="positional-intel"></div>
+
+        <h3>Physical load</h3>
+        <div id="physical-load"></div>
+      </div>
+
+      <div class="card">
+        <h2>Highlights</h2>
+        <p class="muted">Motion-based highlight reel and clips. Shareable via link below.</p>
+        <div id="highlights-block"></div>
+      </div>
+
+      <details>
+        <summary>Technical details</summary>
+        <pre id="report-raw"></pre>
+      </details>
+    </div>
+    <p id="error-msg" class="error" style="display: none;"></p>
+  </div>
+
+  <script>
+    (function () {
+      const API_BASE = '';
+      const params = new URLSearchParams(window.location.search);
+      const courtId = params.get('court_id') || '';
+      const matchId = params.get('match_id') || '';
+
+      const formCard = document.getElementById('form-card');
+      const content = document.getElementById('content');
+      const errorMsg = document.getElementById('error-msg');
+      const matchHeader = document.getElementById('match-header');
+      const matchStructure = document.getElementById('match-structure');
+      const positionalIntel = document.getElementById('positional-intel');
+      const physicalLoad = document.getElementById('physical-load');
+      const highlightsBlock = document.getElementById('highlights-block');
+      const reportRaw = document.getElementById('report-raw');
+
+      document.getElementById('court-id').value = courtId;
+      document.getElementById('match-id').value = matchId;
+
+      function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.style.display = 'block';
+        content.style.display = 'none';
+      }
+      function hideError() {
+        errorMsg.style.display = 'none';
+      }
+
+      document.getElementById('btn-view').addEventListener('click', function () {
+        const cid = document.getElementById('court-id').value.trim();
+        const mid = document.getElementById('match-id').value.trim();
+        if (!mid) {
+          showError('Please enter a Match ID.');
+          return;
+        }
+        const q = new URLSearchParams({ match_id: mid });
+        if (cid) q.set('court_id', cid);
+        window.location.search = q.toString();
+      });
+
+      if (!matchId) {
+        content.style.display = 'none';
+        return;
+      }
+
+      hideError();
+      formCard.style.display = 'block';
+      content.style.display = 'block';
+
+      function fmtDuration(s) {
+        if (s == null || s === undefined) return '—';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return m + ' min ' + sec + ' s';
+      }
+
+      async function load() {
+        try {
+          const matchRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId));
+          if (!matchRes.ok) {
+            if (matchRes.status === 404) {
+              showError('Match not found: ' + matchId);
+              return;
+            }
+            showError('Failed to load match: ' + matchRes.status);
+            return;
+          }
+          const match = await matchRes.json();
+          const courtIdParam = params.get('court_id');
+          if (courtIdParam && match.court_id !== courtIdParam) {
+            showError('This match belongs to court "' + match.court_id + '", not "' + courtIdParam + '".');
+            return;
+          }
+
+          // User-facing header only: match + court
+          matchHeader.innerHTML = [
+            { label: 'Match', value: match.match_id },
+            { label: 'Court', value: match.court_id },
+          ].map(function (m) {
+            return '<div class="metric"><div class="label">' + m.label + '</div><div class="value">' + (m.value || '—') + '</div></div>';
+          }).join('');
+
+          const reportRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report');
+          let report = {};
+          if (reportRes.ok) {
+            report = await reportRes.json();
+          }
+          reportRaw.textContent = JSON.stringify(report, null, 2);
+
+          // Match structure (Phase 1)
+          const summary = report.summary || {};
+          const video = report.video || {};
+          const duration = summary.match_duration_seconds != null ? summary.match_duration_seconds : video.duration_seconds;
+          matchStructure.innerHTML = [
+            { label: 'Match duration', value: fmtDuration(duration) },
+            { label: 'Generated', value: report.generated_at || '—' },
+          ].map(function (m) {
+            return '<div class="metric"><div class="label">' + m.label + '</div><div class="value">' + (m.value || '—') + '</div></div>';
+          }).join('');
+
+          // Positional intelligence (Phase 1) — show data when present, else placeholder
+          const players = report.players || {};
+          const team = report.team || {};
+          const hasPositional = Object.keys(players).length > 0 || Object.keys(team).length > 0;
+          if (hasPositional) {
+            positionalIntel.innerHTML = '<div class="grid">' +
+              (team.zone_coverage ? '<div class="metric"><div class="label">Zone coverage</div><div class="value">Available</div></div>' : '') +
+              (team.net_vs_baseline_pct != null ? '<div class="metric"><div class="label">Net vs baseline %</div><div class="value">' + team.net_vs_baseline_pct + '%</div></div>' : '') +
+              '</div>';
+          } else {
+            positionalIntel.innerHTML = '<p class="placeholder">Heatmaps, zone coverage, net vs baseline %, and team spacing will appear here once tracking is run.</p>';
+          }
+
+          // Physical load (Phase 1)
+          const hasPhysical = summary.total_distance_m != null || summary.avg_speed_kmh != null || summary.sprint_count != null;
+          if (hasPhysical) {
+            physicalLoad.innerHTML = '<div class="grid">' +
+              (summary.total_distance_m != null ? '<div class="metric"><div class="label">Distance</div><div class="value">' + summary.total_distance_m + ' m</div></div>' : '') +
+              (summary.avg_speed_kmh != null ? '<div class="metric"><div class="label">Avg speed</div><div class="value">' + summary.avg_speed_kmh + ' km/h</div></div>' : '') +
+              (summary.sprint_count != null ? '<div class="metric"><div class="label">Sprints</div><div class="value">' + summary.sprint_count + '</div></div>' : '') +
+              '</div>';
+          } else {
+            physicalLoad.innerHTML = '<p class="placeholder">Total distance, speed, sprint count, and intensity timeline will appear here once movement analytics are available.</p>';
+          }
+
+          // Highlights: cloud link + exported clips
+          let highlightsHtml = '';
+          const urlsRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/cloud/urls');
+          if (urlsRes.ok) {
+            const urls = await urlsRes.json();
+            if (urls.highlights_url) {
+              highlightsHtml += '<p><a class="video-link" href="' + urls.highlights_url + '" target="_blank" rel="noopener">Watch highlight reel</a></p>';
+            }
+          }
+          const exported = report.exported_highlights || [];
+          if (exported.length > 0) {
+            highlightsHtml += '<p class="muted" style="margin-top: 1rem;">Highlight segments</p><ul class="clip-list">';
+            exported.forEach(function (c) {
+              highlightsHtml += '<li><strong>' + (c.file || c.reason || 'Clip') + '</strong> ' + (c.reason ? ' · ' + c.reason : '') + (c.start != null && c.end != null ? ' · ' + c.start + 's – ' + c.end + 's' : '') + '</li>';
+            });
+            highlightsHtml += '</ul>';
+          }
+          if (!highlightsHtml) {
+            highlightsHtml = '<p class="placeholder">Highlight reel will appear here once uploaded. Motion-based clips are generated from movement intensity.</p>';
+          }
+          highlightsBlock.innerHTML = highlightsHtml;
+        } catch (e) {
+          showError('Network error: ' + e.message);
+        }
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>
