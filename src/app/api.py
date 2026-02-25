@@ -44,10 +44,19 @@ class ArtifactOut(BaseModel):
     updated_at: str
 
 
+def _landing_path() -> Path:
+    """Find landing.html: repo root (from settings) or cwd (for some hosts)."""
+    for base in (PROJECT_ROOT, Path.cwd()):
+        p = base / "dashboard" / "landing.html"
+        if p.exists():
+            return p
+    return PROJECT_ROOT / "dashboard" / "landing.html"  # fail with clear 404
+
+
 @app.get("/", tags=["meta"])
 def root() -> FileResponse:
     """Main page: enter match ID to open the dashboard."""
-    path = PROJECT_ROOT / "dashboard" / "landing.html"
+    path = _landing_path()
     if not path.exists():
         raise HTTPException(status_code=404, detail="landing.html not found")
     return FileResponse(path, media_type="text/html")
