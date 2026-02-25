@@ -69,6 +69,10 @@
 
         <h3>Physical load</h3>
         <div id="physical-load"></div>
+
+        <h3>Padel analytics (player & court only)</h3>
+        <p class="muted">Movement and court coverage from tracks. Rally, shot speed and wall usage require ball tracking (empty for now).</p>
+        <div id="padel-block"></div>
       </div>
 
       <div class="card">
@@ -99,6 +103,7 @@
       const matchStructure = document.getElementById('match-structure');
       const positionalIntel = document.getElementById('positional-intel');
       const physicalLoad = document.getElementById('physical-load');
+      const padelBlock = document.getElementById('padel-block');
       const highlightsBlock = document.getElementById('highlights-block');
       const reportRaw = document.getElementById('report-raw');
 
@@ -238,6 +243,21 @@
           } else {
             physicalLoad.innerHTML = '<p class="placeholder">Total distance, speed, and intensity will appear here once movement analytics are available.</p>';
           }
+
+          // Padel analytics: player & court only; ball-related empty
+          const padel = report.padel || {};
+          const wall = padel.wall_usage || {};
+          let padelHtml = '<div class="grid">' +
+            '<div class="metric"><div class="label">Wall bounces</div><div class="value">' + (wall.wall_bounce_count != null ? wall.wall_bounce_count : '—') + '</div></div>' +
+            '<div class="metric"><div class="label">Ground bounces</div><div class="value">' + (wall.ground_bounce_count != null ? wall.ground_bounce_count : '—') + '</div></div>' +
+            '<div class="metric"><div class="label">Wall usage</div><div class="value">' + (wall.wall_usage_ratio != null ? (wall.wall_usage_ratio * 100).toFixed(1) + '%' : '—') + '</div></div>' +
+            '</div>';
+          padelHtml += '<p class="muted" style="margin-top: 0.75rem;">Rally length, shot speeds and wall usage (ball tracking) — not available yet. Above shows player movement and court heatmap only.</p>';
+          if ((padel.player_stats_sample || []).length > 0) {
+            padelHtml += '<p class="muted" style="margin-top: 0.5rem;">Player stats over time (sample)</p>';
+            padelHtml += '<pre style="font-size: 0.75rem; max-height: 8rem; overflow: auto;">' + JSON.stringify(padel.player_stats_sample.slice(0, 3), null, 1) + '</pre>';
+          }
+          padelBlock.innerHTML = padelHtml;
 
           // Highlights: video (cloud URL or local) + link + exported clips list
           let highlightsHtml = '';
