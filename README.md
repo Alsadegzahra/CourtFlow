@@ -334,7 +334,7 @@ Code: `src/cloud/storage_r2.py`, `src/cloud/upload.py`. Dependency: `boto3` (in 
 
 - **Environment**: Python 3.9+ (3.10+ recommended). FFmpeg + ffprobe on PATH.
 - **Install**: `python3 -m pip install -r requirements.txt`
-- **How to test**: See **[docs/TESTING.md](docs/TESTING.md)** for ingest, run-match, calibration, API, dashboard, and upload.
+- **How to test**: See **[docs/TESTING.md](docs/TESTING.md)** for ingest, run-match, calibration, API, dashboard, and upload. Other docs: **[docs/](docs/README.md)**.
 - **API**: `python3 -m uvicorn src.app.api:app --reload` → then open http://127.0.0.1:8000/docs or http://127.0.0.1:8000/view?match_id=xxx
 - **Ops dashboard**: `python3 -m streamlit run dashboard/app.py`
 - **Process all FINALIZED matches**: `python3 -m src.app.cli daily-check`

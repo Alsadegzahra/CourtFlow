@@ -38,6 +38,7 @@ def build_phase1_report(
     if tracks:
         from src.analytics.movement import compute_movement_metrics
         from src.analytics.heatmap import build_heatmap
+        from src.analytics.padel import PadelAnalytics
 
         metrics = compute_movement_metrics(tracks)
         report_dict["summary"] = {**report_dict["summary"], **metrics["summary"]}
@@ -47,12 +48,30 @@ def build_phase1_report(
         heatmap_path = reports_dir / "heatmap.png"
         build_heatmap(tracks, heatmap_path)
         report_dict["analytics"] = {"heatmap_path": str(heatmap_path)}
+
+        duration_s = float(video_meta.get("duration_seconds", 0))
+        fps_meta = float(video_meta.get("fps", 30))
+        num_frames = int(duration_s * fps_meta) if duration_s > 0 and fps_meta > 0 else max((t.get("frame", 0) for t in tracks), default=0)
+        fps = fps_meta
+        padel = PadelAnalytics().run_from_tracks(tracks, num_frames=num_frames, fps=fps)
+        report_dict["padel"] = {
+            "rally_metrics": padel["rally_metrics"],
+            "shot_speeds": padel["shot_speeds"],
+            "wall_usage": padel["wall_usage"],
+            "player_stats_sample": padel["player_stats_data"][:5] if padel["player_stats_data"] else [],
+        }
     else:
         report_dict["summary"]["total_track_points"] = 0
         report_dict["summary"]["num_players"] = 0
         report_dict["summary"]["total_distance"] = 0.0
         report_dict["summary"]["total_duration_s"] = 0.0
         report_dict["analytics"] = {}
+        report_dict["padel"] = {
+            "rally_metrics": [],
+            "shot_speeds": [],
+            "wall_usage": {"wall_bounce_count": 0, "ground_bounce_count": 0, "wall_usage_ratio": 0.0},
+            "player_stats_sample": [],
+        }
 
     write_json_atomic(report_path, report_dict)
     return report_path

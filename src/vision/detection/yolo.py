@@ -1,6 +1,7 @@
 """
-B3: run YOLO inference (person detection) and optional tracking (ByteTrack).
+B3: run YOLO inference (person detection) and optional tracking.
 Uses: ultralytics, numpy. COCO class 0 = person.
+Default tracker: BoT-SORT (Ultralytics). Use tracker="bytetrack.yaml" for ByteTrack.
 """
 from __future__ import annotations
 
@@ -13,10 +14,16 @@ import numpy as np
 COCO_PERSON_CLASS_ID = 0
 
 
-def _get_model(model_name: str = "yolov8n.pt"):
-    """Load YOLO model (downloads on first use)."""
+def _get_model(model_name: str = "yolo26n.pt"):
+    """Load YOLO model (downloads on first use). Default: YOLO26 Nano (edge-friendly, faster CPU).
+    Falls back to yolov8n.pt if YOLO26 is not available in this ultralytics version."""
     from ultralytics import YOLO
-    return YOLO(model_name)
+    try:
+        return YOLO(model_name)
+    except Exception:
+        if model_name.startswith("yolo26"):
+            return YOLO("yolov8n.pt")
+        raise
 
 
 def detect_persons(
@@ -62,22 +69,26 @@ def track_persons(
     conf: float = 0.4,
     iou: float = 0.5,
     persist: bool = True,
+    tracker: Optional[str] = None,
 ) -> List[dict]:
     """
-    Run detection + tracking (ByteTrack) on one frame.
+    Run detection + tracking on one frame.
+    Default tracker is BoT-SORT (Ultralytics default). Pass tracker="bytetrack.yaml" for ByteTrack.
     Returns list of detections with track_id.
     Each item: {"bbox_xyxy": [x1,y1,x2,y2], "confidence": float, "class_id": int, "track_id": int}.
     """
     if model is None:
         model = _get_model()
-    results = model.track(
-        frame_bgr,
+    kwargs = dict(
         classes=[COCO_PERSON_CLASS_ID],
         conf=conf,
         iou=iou,
         persist=persist,
         verbose=False,
     )
+    if tracker is not None:
+        kwargs["tracker"] = tracker
+    results = model.track(frame_bgr, **kwargs)
     out = []
     for r in results:
         if r.boxes is None:

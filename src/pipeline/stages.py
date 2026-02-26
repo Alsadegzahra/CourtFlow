@@ -101,10 +101,9 @@ def stage_02_track(
     sample_every_n_frames: int = 5,
     conf: float = 0.4,
 ) -> None:
-    """Player detection + tracking -> tracks/tracks.json. Uses YOLO track + ROI filter + ground point."""
-    import cv2
+    """Player detection + tracking -> tracks/tracks.json. Delegates to vision.pipeline (intelligence layer)."""
     from src.utils.io import write_json_atomic_any
-    from src.pipeline.paths import court_calibration_dir
+    from src.vision.pipeline import run_tracking
 
     tracks_dir = match_dir / "tracks"
     tracks_dir.mkdir(parents=True, exist_ok=True)
@@ -115,57 +114,18 @@ def stage_02_track(
         print("   (skip) Video not found; empty tracks.")
         return
 
-    try:
-        from src.vision.detection.yolo import _get_model, track_persons
-        from src.vision.roi_filter.filter import load_roi_for_match, filter_detections_by_roi
-        from src.vision.tracking.ground_point import bbox_to_ground_point
-    except ImportError as e:
-        write_json(tracks_file, [])
-        print("   (skip) Vision deps missing (pip install ultralytics); empty tracks.")
-        return
-
-    # Load ROI if available (match calibration or court)
-    match_calib_dir = match_dir / "calibration"
-    court_calib_dir = court_calibration_dir(court_id)
-    roi_polygon = load_roi_for_match(match_calib_dir, court_calib_dir)
-
-    cap = cv2.VideoCapture(str(video_path))
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    model = _get_model()
-    tracks: List[dict] = []
-    frame_idx = 0
-    processed = 0
-
-    while True:
-        ret, frame = cap.read()
-        if not ret or frame is None:
-            break
-        if frame_idx % sample_every_n_frames != 0:
-            frame_idx += 1
-            continue
-        dets = track_persons(frame, model=model, conf=conf)
-        if roi_polygon:
-            dets = filter_detections_by_roi(dets, roi_polygon)
-        for d in dets:
-            track_id = d.get("track_id", -1)
-            if track_id < 0:
-                continue
-            x, y = bbox_to_ground_point(d["bbox_xyxy"])
-            tracks.append({
-                "frame": frame_idx,
-                "timestamp": round(frame_idx / fps, 3),
-                "player_id": track_id,
-                "x_pixel": round(x, 2),
-                "y_pixel": round(y, 2),
-                "bbox_xyxy": d["bbox_xyxy"],
-            })
-        processed += 1
-        frame_idx += 1
-    cap.release()
-
+    tracks = run_tracking(
+        video_path, court_id, match_dir,
+        sample_every_n_frames=sample_every_n_frames,
+        conf=conf,
+    )
     write_json_atomic_any(tracks_file, tracks)
-    n_players = len(set(t["player_id"] for t in tracks))
-    print(f"   ✓ Tracked {len(tracks)} points from {processed} frames ({n_players} players).")
+    if not tracks:
+        print("   (skip) Vision deps missing (pip install ultralytics) or no detections; empty tracks.")
+    else:
+        n_players = len(set(t["player_id"] for t in tracks))
+        n_frames = len(set(t["frame"] for t in tracks))
+        print(f"   ✓ Tracked {len(tracks)} points from {n_frames} frames ({n_players} players).")
 
 
 def stage_03_map(match_dir: Path, court_id: str) -> None:

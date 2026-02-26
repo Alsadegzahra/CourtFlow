@@ -3,89 +3,208 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CourtFlow — AI Movement Intelligence</title>
+  <title>CourtFlow — Post-Match Analytics</title>
   <style>
-    :root { --bg: #0f0f12; --card: #1a1a1f; --text: #e4e4e7; --muted: #71717a; --accent: #a78bfa; --border: #27272a; --green: #34d399; }
+    :root {
+      --bg: #0c0c0e;
+      --surface: #141416;
+      --card: #1a1a1e;
+      --border: #2a2a2e;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #8b8b9a;
+      --success: #3f3f46;
+    }
     * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 1.5rem; line-height: 1.5; }
-    .container { max-width: 56rem; margin: 0 auto; }
-    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
-    .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1rem; }
-    .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--accent); }
-    .card h3 { font-size: 0.875rem; font-weight: 600; margin: 1rem 0 0.5rem 0; color: var(--muted); }
-    .card h3:first-of-type { margin-top: 0; }
-    label { display: block; font-size: 0.875rem; color: var(--muted); margin-bottom: 0.25rem; }
-    input { width: 100%; max-width: 20rem; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text); font-size: 1rem; margin-bottom: 0.75rem; }
-    button { padding: 0.5rem 1rem; background: var(--accent); color: var(--bg); border: none; border-radius: 0.25rem; font-weight: 600; cursor: pointer; font-size: 0.875rem; }
-    button:hover { filter: brightness(1.1); }
-    a { color: var(--accent); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0.75rem; margin-bottom: 0.5rem; }
-    .metric { background: var(--bg); padding: 0.75rem; border-radius: 0.25rem; }
-    .metric .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
-    .metric .value { font-weight: 600; margin-top: 0.25rem; }
-    .error { color: #f87171; }
-    .muted { color: var(--muted); font-size: 0.875rem; }
-    .video-link { display: inline-block; margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--accent); color: var(--bg); border-radius: 0.25rem; text-decoration: none; font-weight: 600; font-size: 0.875rem; }
-    .video-link:hover { filter: brightness(1.1); }
-    .clip-list { list-style: none; padding: 0; margin: 0; }
-    .clip-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
-    .clip-list li:last-child { border-bottom: none; }
-    .placeholder { color: var(--muted); font-style: italic; font-size: 0.875rem; }
-    details { margin-top: 1rem; }
-    details summary { cursor: pointer; color: var(--muted); font-size: 0.875rem; }
-    pre { background: var(--bg); padding: 1rem; border-radius: 0.25rem; overflow: auto; font-size: 0.75rem; margin: 0.5rem 0 0 0; }
+    body { font-family: ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.5; font-size: 0.875rem; }
+
+    .container { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem 2rem; }
+
+    /* ----- Header ----- */
+    .header {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+      padding: 1rem 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem;
+    }
+    .header-left { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+    .logo { font-weight: 700; font-size: 1rem; letter-spacing: 0.02em; color: var(--text); }
+    .header-meta { display: flex; align-items: center; gap: 1.25rem; color: var(--text-muted); font-size: 0.8125rem; }
+    .header-meta span { white-space: nowrap; }
+    .header-actions { display: flex; gap: 0.5rem; }
+    .btn { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 0.25rem; cursor: pointer; font-size: 0.8125rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.375rem; }
+    .btn:hover { background: var(--card); }
+    .btn-primary { background: var(--text-muted); color: var(--bg); border-color: var(--text-muted); }
+
+    /* ----- Form (no match) ----- */
+    .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1.5rem; max-width: 24rem; }
+    .form-card label { display: block; color: var(--text-muted); margin-bottom: 0.25rem; font-size: 0.8125rem; }
+    .form-card input { width: 100%; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text); font-size: 0.875rem; margin-bottom: 0.75rem; }
+    .form-card button { padding: 0.5rem 1rem; background: var(--text); color: var(--bg); border: none; border-radius: 0.25rem; font-weight: 600; cursor: pointer; font-size: 0.8125rem; }
+
+    /* ----- Sections ----- */
+    .section { margin-bottom: 1.5rem; }
+    .section-title { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; }
+
+    /* ----- Hero card ----- */
+    .hero {
+      background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1.5rem; margin-bottom: 1rem;
+    }
+    .hero-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+    .hero-main { font-size: 1.5rem; font-weight: 600; color: var(--text); }
+    .badge { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; background: var(--success); color: var(--text-muted); }
+    .stat-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: 0.75rem; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 0.25rem; padding: 0.75rem; }
+    .stat .label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .stat .value { font-weight: 600; font-size: 1rem; color: var(--text); }
+
+    /* ----- Player grid ----- */
+    .player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; }
+    .player-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem;
+    }
+    .player-card h4 { font-size: 0.8125rem; font-weight: 600; margin: 0 0 0.75rem 0; color: var(--text); }
+    .player-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8125rem; }
+    .player-stats .label { color: var(--text-muted); }
+    .player-stats .val { font-weight: 500; }
+    .sparkline { height: 2rem; background: var(--surface); border-radius: 0.25rem; margin-top: 0.5rem; }
+    .sparkline svg { width: 100%; height: 100%; display: block; }
+
+    /* ----- Heatmap ----- */
+    .heatmap-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; }
+    .heatmap-toolbar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .heatmap-toolbar button { padding: 0.375rem 0.75rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; }
+    .heatmap-toolbar button.active { background: var(--border); color: var(--text); }
+    .heatmap-wrap { position: relative; border-radius: 0.25rem; overflow: hidden; background: var(--surface); }
+    .heatmap-wrap img { display: block; width: 100%; max-height: 28rem; object-fit: contain; }
+    .heatmap-legend { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+    /* ----- Highlights ----- */
+    .highlights-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; }
+    .video-wrap { border-radius: 0.25rem; overflow: hidden; background: #000; margin-bottom: 1rem; }
+    .video-wrap video { width: 100%; display: block; max-height: 24rem; }
+    .segment-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .segment-card {
+      display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.25rem;
+    }
+    .segment-card .play-btn { width: 2rem; height: 2rem; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; }
+    .segment-card .time { font-size: 0.75rem; color: var(--text-muted); min-width: 6rem; }
+    .segment-card .reason { font-size: 0.8125rem; color: var(--text); }
+
+    /* ----- Timeline placeholder ----- */
+    .timeline-placeholder {
+      background: var(--card); border: 1px dashed var(--border); border-radius: 0.375rem; padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem;
+    }
+
+    /* ----- Footer ----- */
+    .footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.6875rem; color: var(--text-muted); }
+    .footer span { margin-right: 1rem; }
+
+    .error { color: #dc2626; font-size: 0.875rem; }
+    .placeholder { color: var(--text-muted); font-style: italic; }
+    #content { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>CourtFlow — AI Movement Intelligence</h1>
-    <p class="subtitle">View your post-match movement and positional report.</p>
-
-    <div class="card" id="form-card">
-      <h2>Open a match</h2>
-      <label for="court-id">Court ID (optional)</label>
-      <input type="text" id="court-id" placeholder="e.g. court_01" autocomplete="off">
-      <label for="match-id">Match ID</label>
-      <input type="text" id="match-id" placeholder="e.g. match_2026_02_25_022906" autocomplete="off">
-      <button type="button" id="btn-view">View report</button>
+    <!-- Open match form (when no match_id) -->
+    <div id="form-card" class="section">
+      <p style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">CourtFlow</p>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">Post-match analytics. Enter a match ID to open the report.</p>
+      <div class="form-card">
+        <label for="court-id">Court ID (optional)</label>
+        <input type="text" id="court-id" placeholder="e.g. court_001" autocomplete="off">
+        <label for="match-id">Match ID</label>
+        <input type="text" id="match-id" placeholder="e.g. match_2026_02_25_041702" autocomplete="off">
+        <button type="button" id="btn-view">View report</button>
+      </div>
     </div>
 
-    <div id="content" style="display: none;">
-      <div class="card">
-        <h2>Match</h2>
-        <div class="grid" id="match-header"></div>
-      </div>
+    <div id="content">
+      <!-- 1. Top Header Bar -->
+      <header class="header">
+        <div class="header-left">
+          <span class="logo">CourtFlow</span>
+          <div class="header-meta" id="header-meta">
+            <span id="header-match-id"></span>
+            <span id="header-court"></span>
+            <span id="header-date-duration"></span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <a href="#" id="btn-download-report" class="btn">Download Report</a>
+          <button type="button" id="btn-share" class="btn btn-primary">Share Highlights</button>
+        </div>
+      </header>
 
-      <div class="card">
-        <h2>AI Movement Intelligence Report</h2>
-        <p class="muted">Spatial movement and positional intelligence — Phase 1. No rally or ball tracking.</p>
+      <!-- 2. Match Summary (Hero) -->
+      <section class="section">
+        <div class="hero">
+          <div class="hero-top">
+            <span class="hero-main" id="hero-duration">—</span>
+            <span class="badge" id="hero-status">Completed</span>
+          </div>
+          <div class="stat-row" id="hero-stats">
+            <div class="stat"><div class="label">Total Distance</div><div class="value" id="stat-distance">—</div></div>
+            <div class="stat"><div class="label">Avg Speed</div><div class="value" id="stat-avg-speed">—</div></div>
+            <div class="stat"><div class="label">Total Points</div><div class="value" id="stat-points">—</div></div>
+            <div class="stat"><div class="label">Active Play Time</div><div class="value" id="stat-active-time">—</div></div>
+          </div>
+          <div class="stat-row" style="margin-top: 0.75rem;">
+            <div class="stat"><div class="label">Players detected</div><div class="value" id="stat-players">—</div></div>
+            <div class="stat"><div class="label">Total rally count</div><div class="value" id="stat-rallies">—</div></div>
+          </div>
+        </div>
+      </section>
 
-        <h3>Match structure</h3>
-        <div class="grid" id="match-structure"></div>
+      <!-- 3. Player Performance -->
+      <section class="section">
+        <div class="section-title">Player performance</div>
+        <div class="player-grid" id="player-grid"></div>
+      </section>
 
-        <h3>Positional intelligence</h3>
-        <div id="positional-intel"></div>
+      <!-- 4. Spatial Heatmap -->
+      <section class="section">
+        <div class="section-title">Spatial heatmap</div>
+        <div class="heatmap-card">
+          <div class="heatmap-toolbar">
+            <button type="button" class="heatmap-toggle active" data-view="all">All Players</button>
+            <button type="button" class="heatmap-toggle" data-view="1">Player 1</button>
+            <button type="button" class="heatmap-toggle" data-view="2">Player 2</button>
+          </div>
+          <div class="heatmap-wrap">
+            <img id="heatmap-img" src="" alt="Court heatmap" onerror="this.style.display='none'">
+          </div>
+          <p class="heatmap-legend">Density scale: low → high. Single heatmap (all players) in Phase 1; per-player view is future.</p>
+        </div>
+      </section>
 
-        <h3>Physical load</h3>
-        <div id="physical-load"></div>
+      <!-- 5. Highlights -->
+      <section class="section">
+        <div class="section-title">Highlights</div>
+        <div class="highlights-card">
+          <div class="video-wrap">
+            <video id="highlight-video" controls preload="metadata" style="max-height: 24rem;">No video</video>
+          </div>
+          <div class="segment-list" id="segment-list"></div>
+          <p id="highlights-placeholder" class="placeholder" style="display: none; margin-top: 0.5rem;">No highlight segments. Run pipeline and upload to cloud for shareable reel.</p>
+        </div>
+      </section>
 
-        <h3>Padel analytics (player & court only)</h3>
-        <p class="muted">Movement and court coverage from tracks. Rally, shot speed and wall usage require ball tracking (empty for now).</p>
-        <div id="padel-block"></div>
-      </div>
+      <!-- 6. Match Timeline (placeholder) -->
+      <section class="section">
+        <div class="section-title">Match timeline</div>
+        <div class="timeline-placeholder">
+          Match timeline with event markers and rally visualization — coming in V2. Zoom and expand will be supported.
+        </div>
+      </section>
 
-      <div class="card">
-        <h2>Highlights</h2>
-        <p class="muted">Motion-based highlight reel and clips. Shareable via link below.</p>
-        <div id="highlights-block"></div>
-      </div>
-
-      <details>
-        <summary>Technical details</summary>
-        <pre id="report-raw"></pre>
-      </details>
+      <!-- 7. Footer -->
+      <footer class="footer">
+        <span id="footer-schema">Schema: phase1_v1</span>
+        <span id="footer-generated">Generated: —</span>
+        <span id="footer-machine" style="opacity: 0.7;">Machine ID (optional)</span>
+      </footer>
     </div>
+
     <p id="error-msg" class="error" style="display: none;"></p>
   </div>
 
@@ -99,13 +218,6 @@
       const formCard = document.getElementById('form-card');
       const content = document.getElementById('content');
       const errorMsg = document.getElementById('error-msg');
-      const matchHeader = document.getElementById('match-header');
-      const matchStructure = document.getElementById('match-structure');
-      const positionalIntel = document.getElementById('positional-intel');
-      const physicalLoad = document.getElementById('physical-load');
-      const padelBlock = document.getElementById('padel-block');
-      const highlightsBlock = document.getElementById('highlights-block');
-      const reportRaw = document.getElementById('report-raw');
 
       document.getElementById('court-id').value = courtId;
       document.getElementById('match-id').value = matchId;
@@ -122,10 +234,7 @@
       document.getElementById('btn-view').addEventListener('click', function () {
         const cid = document.getElementById('court-id').value.trim();
         const mid = document.getElementById('match-id').value.trim();
-        if (!mid) {
-          showError('Please enter a Match ID.');
-          return;
-        }
+        if (!mid) { showError('Please enter a Match ID.'); return; }
         const q = new URLSearchParams({ match_id: mid });
         if (cid) q.set('court_id', cid);
         window.location.search = q.toString();
@@ -137,7 +246,7 @@
       }
 
       hideError();
-      formCard.style.display = 'block';
+      formCard.style.display = 'none';
       content.style.display = 'block';
 
       function fmtDuration(s) {
@@ -147,120 +256,108 @@
         return m + ' min ' + sec + ' s';
       }
 
+      function fmtDate(iso) {
+        if (!iso) return '—';
+        try {
+          const d = new Date(iso);
+          return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        } catch (e) { return iso; }
+      }
+
+      // Minimal sparkline placeholder (bar strip from point_count)
+      function sparklineSvg(pointCount) {
+        const w = 120; const h = 24;
+        const v = Math.min(100, (pointCount || 0) * 2);
+        return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none"><rect x="0" y="' + (h - (h * v / 100)) + '" width="' + w + '" height="' + (h * v / 100) + '" fill="currentColor" opacity="0.4"/></svg>';
+      }
+
       async function load() {
         try {
           const matchRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId));
           if (!matchRes.ok) {
-            if (matchRes.status === 404) {
-              showError('Match not found: ' + matchId);
-              return;
-            }
+            if (matchRes.status === 404) { showError('Match not found: ' + matchId); return; }
             showError('Failed to load match: ' + matchRes.status);
             return;
           }
           const match = await matchRes.json();
-          const courtIdParam = params.get('court_id');
-          if (courtIdParam && match.court_id !== courtIdParam) {
-            showError('This match belongs to court "' + match.court_id + '", not "' + courtIdParam + '".');
+          if (courtId && match.court_id !== courtId) {
+            showError('This match belongs to court "' + match.court_id + '", not "' + courtId + '".');
             return;
           }
 
-          // User-facing header only: match + court
-          matchHeader.innerHTML = [
-            { label: 'Match', value: match.match_id },
-            { label: 'Court', value: match.court_id },
-          ].map(function (m) {
-            return '<div class="metric"><div class="label">' + m.label + '</div><div class="value">' + (m.value || '—') + '</div></div>';
-          }).join('');
-
           const reportRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report');
           let report = {};
-          if (reportRes.ok) {
-            report = await reportRes.json();
-          }
-          reportRaw.textContent = JSON.stringify(report, null, 2);
+          if (reportRes.ok) report = await reportRes.json();
 
-          // Match structure + analytics summary
           const summary = report.summary || {};
           const video = report.video || {};
           const duration = summary.match_duration_seconds != null ? summary.match_duration_seconds : video.duration_seconds;
-          const metrics = [
-            { label: 'Match duration', value: fmtDuration(duration) },
-            { label: 'Generated', value: report.generated_at || '—' },
-          ];
-          if (summary.total_track_points != null) {
-            metrics.push({ label: 'Track points', value: summary.total_track_points });
-            metrics.push({ label: 'Players (IDs)', value: summary.num_players != null ? summary.num_players : '—' });
-            metrics.push({ label: 'Total distance', value: summary.total_distance != null ? summary.total_distance : '—' });
-            metrics.push({ label: 'Track duration', value: summary.total_duration_s != null ? summary.total_duration_s + ' s' : '—' });
-          }
-          matchStructure.innerHTML = metrics.map(function (m) {
-            return '<div class="metric"><div class="label">' + m.label + '</div><div class="value">' + (m.value || '—') + '</div></div>';
+
+          // Header
+          document.getElementById('header-match-id').textContent = 'Match ID: ' + (report.match_id || matchId);
+          document.getElementById('header-court').textContent = (report.court_id || match.court_id) + ' — Court';
+          document.getElementById('header-date-duration').textContent = fmtDate(report.generated_at) + ' · ' + fmtDuration(duration);
+
+          // Download report: trigger JSON download
+          document.getElementById('btn-download-report').onclick = function () {
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (report.match_id || matchId) + '-report.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+          };
+
+          // Share: copy URL
+          document.getElementById('btn-share').onclick = function () {
+            const url = window.location.href;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(url).then(function () { alert('Link copied to clipboard.'); });
+            } else { prompt('Copy this link:', url); }
+          };
+
+          // Hero
+          document.getElementById('hero-duration').textContent = fmtDuration(duration);
+          document.getElementById('hero-status').textContent = report.status === 'computed' ? 'Completed' : (report.status || 'Completed');
+          document.getElementById('stat-distance').textContent = summary.total_distance != null ? summary.total_distance + ' m' : '—';
+          const avgSpeed = summary.num_players > 0 && summary.total_duration_s > 0 && summary.total_distance != null
+            ? (summary.total_distance / (summary.total_duration_s / 3600)).toFixed(2) + ' m/h'
+            : '—';
+          document.getElementById('stat-avg-speed').textContent = avgSpeed;
+          document.getElementById('stat-points').textContent = summary.total_track_points != null ? summary.total_track_points : '—';
+          document.getElementById('stat-active-time').textContent = summary.total_duration_s != null ? summary.total_duration_s + ' s' : '—';
+          document.getElementById('stat-players').textContent = summary.num_players != null ? summary.num_players : '—';
+          document.getElementById('stat-rallies').textContent = '—';
+
+          // Players
+          const players = report.players || {};
+          const playerIds = Object.keys(players).sort(function (a, b) { return Number(a) - Number(b); });
+          const playerGrid = document.getElementById('player-grid');
+          playerGrid.innerHTML = playerIds.slice(0, 20).map(function (pid) {
+            const p = players[pid];
+            return '<div class="player-card">' +
+              '<h4>Player ' + pid + '</h4>' +
+              '<div class="player-stats">' +
+              '<span class="label">Distance</span><span class="val">' + (p.distance != null ? p.distance + ' m' : '—') + '</span>' +
+              '<span class="label">Avg speed</span><span class="val">' + (p.avg_speed != null ? p.avg_speed : '—') + '</span>' +
+              '<span class="label">Active duration</span><span class="val">' + (p.duration_s != null ? p.duration_s + ' s' : '—') + '</span>' +
+              '<span class="label">Points</span><span class="val">' + (p.point_count != null ? p.point_count : '—') + '</span>' +
+              '</div>' +
+              '<div class="sparkline">' + sparklineSvg(p.point_count) + '</div>' +
+              '</div>';
           }).join('');
 
-          // Positional intelligence: court heatmap + per-player movement
-          const players = report.players || {};
-          const team = report.team || {};
-          const hasPlayers = Object.keys(players).length > 0;
-          const hasTeam = Object.keys(team).length > 0 && (team.zone_coverage || team.net_vs_baseline_pct != null);
-          let posHtml = '';
-          if (summary.total_track_points > 0) {
-            const heatmapUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
-            posHtml += '<p class="muted" style="margin-bottom: 0.5rem;">Court heatmap (position density)</p>';
-            posHtml += '<img src="' + heatmapUrl + '" alt="Court heatmap" style="max-width: 100%; border-radius: 0.25rem; border: 1px solid var(--border);" onerror="this.style.display=\'none\'">';
-          }
-          if (hasPlayers) {
-            posHtml += '<p class="muted" style="margin-top: 1rem;">Per-player movement</p>';
-            posHtml += '<table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;"><thead><tr style="text-align: left; border-bottom: 1px solid var(--border);"><th style="padding: 0.5rem;">Player</th><th style="padding: 0.5rem;">Distance</th><th style="padding: 0.5rem;">Duration</th><th style="padding: 0.5rem;">Avg speed</th><th style="padding: 0.5rem;">Points</th></tr></thead><tbody>';
-            Object.keys(players).sort(function (a, b) { return Number(a) - Number(b); }).forEach(function (pid) {
-              const p = players[pid];
-              posHtml += '<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem;">' + pid + '</td><td style="padding: 0.5rem;">' + (p.distance != null ? p.distance : '—') + '</td><td style="padding: 0.5rem;">' + (p.duration_s != null ? p.duration_s + ' s' : '—') + '</td><td style="padding: 0.5rem;">' + (p.avg_speed != null ? p.avg_speed : '—') + '</td><td style="padding: 0.5rem;">' + (p.point_count != null ? p.point_count : '—') + '</td></tr>';
-            });
-            posHtml += '</tbody></table>';
-          }
-          if (hasTeam) {
-            posHtml += '<div class="grid" style="margin-top: 1rem;">' +
-              (team.zone_coverage ? '<div class="metric"><div class="label">Zone coverage</div><div class="value">Available</div></div>' : '') +
-              (team.net_vs_baseline_pct != null ? '<div class="metric"><div class="label">Net vs baseline %</div><div class="value">' + team.net_vs_baseline_pct + '%</div></div>' : '') +
-              '</div>';
-          }
-          if (posHtml) {
-            positionalIntel.innerHTML = posHtml;
-          } else {
-            positionalIntel.innerHTML = '<p class="placeholder">Heatmap and per-player stats will appear here once tracking and analytics have run.</p>';
-          }
+          // Heatmap
+          const heatmapUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
+          document.getElementById('heatmap-img').src = heatmapUrl;
+          document.querySelectorAll('.heatmap-toggle').forEach(function (btn) {
+            btn.onclick = function () {
+              document.querySelectorAll('.heatmap-toggle').forEach(function (b) { b.classList.remove('active'); });
+              btn.classList.add('active');
+            };
+          });
 
-          // Physical load (use new summary fields when present)
-          const hasPhysical = summary.total_distance != null || summary.total_duration_s != null || summary.total_distance_m != null || summary.avg_speed_kmh != null || summary.sprint_count != null;
-          if (hasPhysical) {
-            physicalLoad.innerHTML = '<div class="grid">' +
-              (summary.total_distance != null ? '<div class="metric"><div class="label">Total distance</div><div class="value">' + summary.total_distance + '</div></div>' : '') +
-              (summary.total_duration_s != null ? '<div class="metric"><div class="label">Track duration</div><div class="value">' + summary.total_duration_s + ' s</div></div>' : '') +
-              (summary.total_distance_m != null ? '<div class="metric"><div class="label">Distance (m)</div><div class="value">' + summary.total_distance_m + ' m</div></div>' : '') +
-              (summary.avg_speed_kmh != null ? '<div class="metric"><div class="label">Avg speed</div><div class="value">' + summary.avg_speed_kmh + ' km/h</div></div>' : '') +
-              (summary.sprint_count != null ? '<div class="metric"><div class="label">Sprints</div><div class="value">' + summary.sprint_count + '</div></div>' : '') +
-              '</div>';
-          } else {
-            physicalLoad.innerHTML = '<p class="placeholder">Total distance, speed, and intensity will appear here once movement analytics are available.</p>';
-          }
-
-          // Padel analytics: player & court only; ball-related empty
-          const padel = report.padel || {};
-          const wall = padel.wall_usage || {};
-          let padelHtml = '<div class="grid">' +
-            '<div class="metric"><div class="label">Wall bounces</div><div class="value">' + (wall.wall_bounce_count != null ? wall.wall_bounce_count : '—') + '</div></div>' +
-            '<div class="metric"><div class="label">Ground bounces</div><div class="value">' + (wall.ground_bounce_count != null ? wall.ground_bounce_count : '—') + '</div></div>' +
-            '<div class="metric"><div class="label">Wall usage</div><div class="value">' + (wall.wall_usage_ratio != null ? (wall.wall_usage_ratio * 100).toFixed(1) + '%' : '—') + '</div></div>' +
-            '</div>';
-          padelHtml += '<p class="muted" style="margin-top: 0.75rem;">Rally length, shot speeds and wall usage (ball tracking) — not available yet. Above shows player movement and court heatmap only.</p>';
-          if ((padel.player_stats_sample || []).length > 0) {
-            padelHtml += '<p class="muted" style="margin-top: 0.5rem;">Player stats over time (sample)</p>';
-            padelHtml += '<pre style="font-size: 0.75rem; max-height: 8rem; overflow: auto;">' + JSON.stringify(padel.player_stats_sample.slice(0, 3), null, 1) + '</pre>';
-          }
-          padelBlock.innerHTML = padelHtml;
-
-          // Highlights: video (cloud URL or local) + link + exported clips list
-          let highlightsHtml = '';
+          // Highlights
           let videoUrl = null;
           const urlsRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/cloud/urls');
           if (urlsRes.ok) {
@@ -269,26 +366,46 @@
           }
           if (!videoUrl) {
             const localRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video', { method: 'HEAD' });
-            if (localRes.ok) {
-              videoUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video';
-            }
+            if (localRes.ok) videoUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video';
           }
+          const videoEl = document.getElementById('highlight-video');
+          const segmentList = document.getElementById('segment-list');
+          const highlightsPlaceholder = document.getElementById('highlights-placeholder');
           if (videoUrl) {
-            highlightsHtml += '<p><a class="video-link" href="' + videoUrl + '" target="_blank" rel="noopener">Watch highlight reel</a></p>';
-            highlightsHtml += '<video src="' + videoUrl + '" controls style="width: 100%; max-width: 40rem; border-radius: 0.25rem; margin-top: 0.5rem; border: 1px solid var(--border);" preload="metadata">Your browser does not support the video tag.</video>';
+            videoEl.src = videoUrl;
+            videoEl.style.display = 'block';
+          } else {
+            videoEl.style.display = 'none';
           }
           const exported = report.exported_highlights || [];
           if (exported.length > 0) {
-            highlightsHtml += '<p class="muted" style="margin-top: 1rem;">Highlight segments</p><ul class="clip-list">';
-            exported.forEach(function (c) {
-              highlightsHtml += '<li><strong>' + (c.file || c.reason || 'Clip') + '</strong> ' + (c.reason ? ' · ' + c.reason : '') + (c.start != null && c.end != null ? ' · ' + c.start + 's – ' + c.end + 's' : '') + '</li>';
+            highlightsPlaceholder.style.display = 'none';
+            segmentList.innerHTML = exported.map(function (seg, i) {
+              const start = seg.start != null ? seg.start : 0;
+              const end = seg.end != null ? seg.end : start + 10;
+              const reason = seg.reason || seg.file || 'Highlight';
+              return '<div class="segment-card">' +
+                '<button type="button" class="play-btn" data-start="' + start + '" title="Play from ' + start + 's">▶</button>' +
+                '<span class="time">' + start.toFixed(1) + 's – ' + end.toFixed(1) + 's</span>' +
+                '<span class="reason">' + reason + '</span>' +
+                '</div>';
+            }).join('');
+            segmentList.querySelectorAll('.play-btn').forEach(function (btn) {
+              btn.onclick = function () {
+                if (videoUrl && videoEl.src) {
+                  videoEl.currentTime = parseFloat(btn.getAttribute('data-start'));
+                  videoEl.play();
+                }
+              };
             });
-            highlightsHtml += '</ul>';
+          } else {
+            segmentList.innerHTML = '';
+            highlightsPlaceholder.style.display = 'block';
           }
-          if (!highlightsHtml) {
-            highlightsHtml = '<p class="placeholder">Highlight reel will appear here once uploaded. Run the pipeline and upload to cloud to get a shareable link.</p>';
-          }
-          highlightsBlock.innerHTML = highlightsHtml;
+
+          // Footer
+          document.getElementById('footer-schema').textContent = 'Schema: ' + (report.schema_version || 'phase1_v1');
+          document.getElementById('footer-generated').textContent = 'Generated: ' + (report.generated_at || '—');
         } catch (e) {
           showError('Network error: ' + e.message);
         }
