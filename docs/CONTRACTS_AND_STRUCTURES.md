@@ -49,7 +49,7 @@ Calibration is one-time per court (manual or identity); stage_01 copies homograp
 ## 4. Key interfaces (contracts)
 
 **Intelligence (vision)**  
-- **Entry**: `run_tracking(video_path, court_id, match_dir, sample_every_n_frames=5, conf=0.4) -> List[dict]`  
+- **Entry**: `run_tracking(video_path, court_id, match_dir, sample_every_n_frames=5, conf=0.4, iou=0.5, tracker=None) -> List[dict]`  
 - **Contract**: Each dict has frame, timestamp, player_id, x_pixel, y_pixel, bbox_xyxy (optional). Stage_03 adds x_court, y_court.  
 - **Implemented in**: src/vision/pipeline.py (calls detection, ROI filter, ground point).  
 

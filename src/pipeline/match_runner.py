@@ -29,6 +29,11 @@ class HighlightConfig:
 def run_match(
     match_id: str,
     cfg: Optional[HighlightConfig] = None,
+    *,
+    track_sample_every_n_frames: int = 5,
+    track_conf: float = 0.4,
+    track_iou: float = 0.5,
+    track_tracker: Optional[str] = None,
 ) -> Path:
     """
     Run full pipeline for one match: load match from DB, ensure dirs, run stages 01–06,
@@ -68,7 +73,15 @@ def run_match(
         print("\n[01] Load calibration")
         stages.stage_01_load_calibration(out_dir, match["court_id"], video_path)
         print("\n[02] Player detection + tracking")
-        stages.stage_02_track(out_dir, video_path, match["court_id"])
+        stages.stage_02_track(
+            out_dir,
+            video_path,
+            match["court_id"],
+            sample_every_n_frames=track_sample_every_n_frames,
+            conf=track_conf,
+            iou=track_iou,
+            tracker=track_tracker,
+        )
         print("\n[03] Coordinate mapping")
         stages.stage_03_map(out_dir, match["court_id"])
         print("\n[04] Analytics report")

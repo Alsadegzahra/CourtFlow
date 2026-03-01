@@ -235,7 +235,7 @@ def get_match_cloud_urls(
         )
     from src.cloud.upload import get_signed_url_for_key
     prefix = f"matches/{match_id}"
-    out = {"highlights_url": None, "report_url": None}
+    out = {"highlights_url": None, "report_url": None, "heatmap_url": None}
     try:
         out["highlights_url"] = get_signed_url_for_key(
             f"{prefix}/highlights.mp4", expiration_seconds=expires_seconds
@@ -245,6 +245,12 @@ def get_match_cloud_urls(
     try:
         out["report_url"] = get_signed_url_for_key(
             f"{prefix}/report.json", expiration_seconds=expires_seconds
+        )
+    except Exception:
+        pass
+    try:
+        out["heatmap_url"] = get_signed_url_for_key(
+            f"{prefix}/heatmap.png", expiration_seconds=expires_seconds
         )
     except Exception:
         pass

@@ -5,7 +5,7 @@ Uses: court/calibration, vision (stubs), storage/tracks_db, analytics/report, hi
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.utils.io import read_json, write_json
 from src.utils.time import now_iso
@@ -65,8 +65,15 @@ def stage_01_load_calibration(match_dir: Path, court_id: str, video_path: Path) 
     calib = load_calibration_artifacts(calib_dir)
 
     if not calib:
-        print("   No calibration for this court; run manual calibration once per court.")
-        return
+        print("   No calibration for this court; trying auto-detect from video...")
+        new_calib = try_auto_fix(court_id, video_path)
+        if new_calib:
+            save_calibration_artifacts(calib_dir, new_calib)
+            calib = new_calib
+            print("   ✓ Auto-detect applied; calibration saved.")
+        else:
+            print("   Auto-detect failed; run manual calibration once per court.")
+            return
 
     # Light per-match check
     status = run_quick_check(court_id, video_path=video_path)
@@ -100,6 +107,8 @@ def stage_02_track(
     *,
     sample_every_n_frames: int = 5,
     conf: float = 0.4,
+    iou: float = 0.5,
+    tracker: Optional[str] = None,
 ) -> None:
     """Player detection + tracking -> tracks/tracks.json. Delegates to vision.pipeline (intelligence layer)."""
     from src.utils.io import write_json_atomic_any
@@ -118,6 +127,8 @@ def stage_02_track(
         video_path, court_id, match_dir,
         sample_every_n_frames=sample_every_n_frames,
         conf=conf,
+        iou=iou,
+        tracker=tracker,
     )
     write_json_atomic_any(tracks_file, tracks)
     if not tracks:

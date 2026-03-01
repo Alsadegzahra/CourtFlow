@@ -30,11 +30,12 @@ def upload_match_artifacts(
     *,
     upload_highlights_mp4: bool = True,
     upload_report: bool = True,
+    upload_heatmap: bool = True,
     bucket: Optional[str] = None,
 ) -> dict:
     """
-    Upload highlights.mp4 and report.json for a match to R2.
-    Returns dict with keys used and optional signed URLs if you call get_signed_url.
+    Upload highlights.mp4, report.json, and heatmap.png for a match to R2.
+    Returns dict with keys used. Dashboard uses heatmap_url from cloud/urls when deployed.
     """
     base = MATCHES_DIR / match_id
     if not base.exists():
@@ -58,6 +59,14 @@ def upload_match_artifacts(
             upload_artifact(key, rp, bucket=bucket)
             result["keys"].append(key)
             result["report_key"] = key
+
+    if upload_heatmap:
+        heatmap_path = base / "reports" / "heatmap.png"
+        if heatmap_path.exists():
+            key = f"{prefix}/heatmap.png"
+            upload_artifact(key, heatmap_path, bucket=bucket)
+            result["keys"].append(key)
+            result["heatmap_key"] = key
 
     return result
 

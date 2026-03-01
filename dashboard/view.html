@@ -347,9 +347,21 @@
               '</div>';
           }).join('');
 
-          // Heatmap
-          const heatmapUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
-          document.getElementById('heatmap-img').src = heatmapUrl;
+          // Cloud URLs (for heatmap + highlights when deployed)
+          let cloudUrls = {};
+          try {
+            const urlsRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/cloud/urls');
+            if (urlsRes.ok) cloudUrls = await urlsRes.json();
+          } catch (e) {}
+
+          // Heatmap: use heatmap_url from cloud when available (deployed), else local API
+          const heatmapImg = document.getElementById('heatmap-img');
+          if (cloudUrls.heatmap_url) {
+            heatmapImg.src = cloudUrls.heatmap_url;
+          } else {
+            heatmapImg.src = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
+          }
+          heatmapImg.style.display = '';
           document.querySelectorAll('.heatmap-toggle').forEach(function (btn) {
             btn.onclick = function () {
               document.querySelectorAll('.heatmap-toggle').forEach(function (b) { b.classList.remove('active'); });
@@ -358,12 +370,7 @@
           });
 
           // Highlights
-          let videoUrl = null;
-          const urlsRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/cloud/urls');
-          if (urlsRes.ok) {
-            const urls = await urlsRes.json();
-            videoUrl = urls.highlights_url || null;
-          }
+          let videoUrl = cloudUrls.highlights_url || null;
           if (!videoUrl) {
             const localRes = await fetch(API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video', { method: 'HEAD' });
             if (localRes.ok) videoUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/highlights/video';

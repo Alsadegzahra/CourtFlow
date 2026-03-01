@@ -82,13 +82,18 @@ def cmd_calibrate_court(args: argparse.Namespace) -> None:
         from src.court.calibration.click_calibrate import calibrate_from_clicks
         court_w = getattr(args, "court_width_m", 1.0)
         court_h = getattr(args, "court_height_m", 1.0)
-        calib, calib_frame, points_px = calibrate_from_clicks(path, court_width_m=court_w, court_height_m=court_h)
+        num_pts = getattr(args, "points", 4)
+        calib, calib_frame, points_px = calibrate_from_clicks(
+            path, court_width_m=court_w, court_height_m=court_h, num_points=num_pts
+        )
+        # ROI = first 4 points (court outline) for both 4- and 12-point mode
+        roi_pts = points_px[:4]
         save_calibration_artifacts(
             calib_dir, calib,
             calib_frame=calib_frame,
-            roi_polygon_px=[(float(x), float(y)) for x, y in points_px],
+            roi_polygon_px=[(float(x), float(y)) for x, y in roi_pts],
         )
-        print(f"Saved manual (click) calibration + calib_frame + ROI for court {court_id}.")
+        print(f"Saved manual ({num_pts}-point) calibration + calib_frame + ROI for court {court_id}.")
         return
 
     if use_identity:
@@ -98,7 +103,7 @@ def cmd_calibrate_court(args: argparse.Namespace) -> None:
 
 
 def cmd_ingest_match(args: argparse.Namespace) -> None:
-    """ingest-match: create match, ingest video to raw/match.mp4, set FINALIZED."""
+    """ingest-match: create match, ingest video to raw/match.mp4, set FINALIZED. Then optionally define court points."""
     ensure_dirs()
     init_db()
     upsert_court(args.court_id, getattr(args, "site_name", None))
@@ -126,6 +131,40 @@ def cmd_ingest_match(args: argparse.Namespace) -> None:
     update_match(match_id, state="FINALIZED", ended_at=utcnow_iso())
     print(f"FINALIZED {match_id} -> {output_dir_str}")
 
+    # Ask to define court points (manual calibration) for this court
+    try:
+        reply = input("Define court points for this court now? [y/N]: ").strip().lower()
+    except EOFError:
+        reply = "n"
+    if reply in ("y", "yes"):
+        from src.pipeline.paths import court_calibration_dir
+        from src.court.calibration.click_calibrate import calibrate_from_clicks
+        from src.court.calibration.artifacts import save_calibration_artifacts
+        court_id = args.court_id
+        calib_dir = court_calibration_dir(court_id)
+        court_w = getattr(args, "court_width_m", 10.0)
+        court_h = getattr(args, "court_height_m", 20.0)
+        num_pts = getattr(args, "calibrate_points", 12)
+        try:
+            calib, calib_frame, points_px = calibrate_from_clicks(
+                match_mp4, court_width_m=court_w, court_height_m=court_h, num_points=num_pts
+            )
+            roi_pts = points_px[:4]
+            save_calibration_artifacts(
+                calib_dir, calib,
+                calib_frame=calib_frame,
+                roi_polygon_px=[(float(x), float(y)) for x, y in roi_pts],
+            )
+            print(f"Calibration saved for court {court_id} ({num_pts} points).")
+        except RuntimeError as e:
+            if "cancelled" in str(e).lower():
+                print("Calibration cancelled.")
+            else:
+                raise
+    else:
+        print("Skipped. To calibrate later run:")
+        print(f"  python3 -m src.app.cli calibrate-court --court_id {args.court_id} --image {match_mp4} --points 12")
+
 
 def cmd_run_match(args: argparse.Namespace) -> None:
     """run-match: run pipeline for a match (by id or latest FINALIZED)."""
@@ -147,7 +186,14 @@ def cmd_run_match(args: argparse.Namespace) -> None:
         every_s=getattr(args, "every", 60.0),
         max_clips=getattr(args, "max_clips", 10),
     )
-    path = run_match(match_id, cfg)
+    path = run_match(
+        match_id,
+        cfg,
+        track_sample_every_n_frames=getattr(args, "sample_every", 5),
+        track_conf=getattr(args, "conf", 0.4),
+        track_iou=getattr(args, "iou", 0.5),
+        track_tracker=getattr(args, "tracker", None),
+    )
     print(f"Highlights: {path}")
 
 
@@ -186,17 +232,21 @@ def main() -> None:
     # calibrate-court
     p_cal = sub.add_parser("calibrate-court", help="Manual calibration once per court")
     p_cal.add_argument("--court_id", default="court_001")
-    p_cal.add_argument("--image", help="Image or video: with --identity use frame size; else open window to click 4 court corners")
+    p_cal.add_argument("--image", help="Image or video: with --identity use frame size; else open window to click court points")
     p_cal.add_argument("--identity", action="store_true", help="Write identity homography from --image dimensions (no clicks)")
     p_cal.add_argument("--homography_file", help="Path to existing homography.json to copy into court")
-    p_cal.add_argument("--court_width_m", type=float, default=1.0, help="Court width in meters (for click calibration)")
-    p_cal.add_argument("--court_height_m", type=float, default=1.0, help="Court height in meters (for click calibration)")
+    p_cal.add_argument("--court_width_m", type=float, default=10.0, help="Court width in meters (padel default 10)")
+    p_cal.add_argument("--court_height_m", type=float, default=20.0, help="Court height in meters (padel default 20)")
+    p_cal.add_argument("--points", type=int, default=4, choices=[4, 12], help="4 corners only, or 12 (corners + service + net) for more robust H")
     p_cal.set_defaults(func=cmd_calibrate_court)
 
     # ingest-match
-    p_ing = sub.add_parser("ingest-match", help="Ingest video and create FINALIZED match")
+    p_ing = sub.add_parser("ingest-match", help="Ingest video and create FINALIZED match; then optionally define court points")
     p_ing.add_argument("--court_id", default="court_001")
     p_ing.add_argument("--input", required=True, help="Path to input video")
+    p_ing.add_argument("--court_width_m", type=float, default=10.0, help="Court width in meters (for calibration prompt)")
+    p_ing.add_argument("--court_height_m", type=float, default=20.0, help="Court height in meters (for calibration prompt)")
+    p_ing.add_argument("--calibrate_points", type=int, default=12, choices=[4, 12], help="4 or 12 points when defining court (default 12)")
     p_ing.set_defaults(func=cmd_ingest_match)
 
     # run-match
@@ -205,6 +255,10 @@ def main() -> None:
     p_run.add_argument("--clip_len", type=float, default=12.0)
     p_run.add_argument("--every", type=float, default=60.0)
     p_run.add_argument("--max_clips", type=int, default=10)
+    p_run.add_argument("--sample_every", type=int, default=5, help="Track every N frames (pretrained tuning)")
+    p_run.add_argument("--conf", type=float, default=0.4, help="Detection confidence threshold (pretrained tuning)")
+    p_run.add_argument("--iou", type=float, default=0.5, help="NMS IoU threshold (pretrained tuning)")
+    p_run.add_argument("--tracker", default=None, help="Tracker config e.g. bytetrack.yaml (default: BoT-SORT)")
     p_run.set_defaults(func=cmd_run_match)
 
     # daily-check

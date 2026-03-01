@@ -5,6 +5,8 @@
 **Order:**  
 1. **Perfect pretrained** (this doc) → 2. **Pilot** (collect data) → 3. **Fine-tune** (using pilot data) → 4. **Optionally train** (e.g. ball, custom classes).
 
+**Current focus (Feb 2026):** Court calibration first. Test run showed 4 real players but 53–71 unique track IDs (ID switches). Best run so far: `--sample_every 3` (53 IDs). After calibration and ROI are solid, revisit tracking/detection tuning.
+
 ---
 
 ## Checklist: pretrained-only improvements
@@ -46,14 +48,15 @@ Everything below uses only pretrained models, config, or code changes. No data c
 | Done? | Item | What to do |
 |-------|------|------------|
 | ☐ | Sample rate | Tune `sample_every_n_frames` (e.g. 3, 5, 10). Lower = more points, more compute; higher = faster, may miss fast moves. |
-| ☐ | Pass tracker to run_tracking | If you add a `tracker` argument to `run_tracking`, pass it through to `track_persons` so you can switch BoT-SORT vs ByteTrack without editing yolo.py. |
+| ☑ | Pass tracker to run_tracking | `run_tracking(..., iou=0.5, tracker=None)` and `stage_02_track(..., iou=..., tracker=...)`; CLI: `run-match --tracker bytetrack.yaml --iou 0.45 --conf 0.35 --sample_every 3`. |
 
-### Calibration (no ML)
+### Calibration (no ML) — **do this next**
 
 | Done? | Item | What to do |
 |-------|------|------------|
 | ☐ | 4-point quality | Ensure court corners are clicked consistently; re-run calibration on a few frames to see if homography is stable. |
 | ☐ | ROI polygon | Ensure ROI polygon matches the play area (not too tight; no extra regions). |
+| ☐ | Calibration flow | Use `calibrate-court` (and capture/artifacts) so court + ROI are correct before more tracking runs. |
 
 ### Validation (no new data)
 

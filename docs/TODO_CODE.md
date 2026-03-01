@@ -2,7 +2,7 @@
 
 Prioritized list to improve the codebase. Pipeline and product shape are stable; these items add accuracy, robustness, and maintainability.
 
-**Pre-pilot:** To max out the **pretrained** pipeline before collecting data, see **[docs/PRE_PILOT_PRETRAINED.md](PRE_PILOT_PRETRAINED.md)** (detection/tracking/ROI/ground-point tuning, no training).
+**Current priority:** **Court calibration** (and everything about it). Get homography + ROI right first, then reassess detection/tracking. See **[docs/PRE_PILOT_PRETRAINED.md](PRE_PILOT_PRETRAINED.md)** for pretrained tuning order; calibration is marked "do this next."
 
 ---
 
@@ -32,12 +32,13 @@ Prioritized list to improve the codebase. Pipeline and product shape are stable;
 
 ---
 
-## 3. Calibration
+## 3. Calibration **(current focus)**
 
 **Where:** `src/court/calibration/`
 
 | Priority | Item | Notes |
 |----------|------|--------|
+| **High** | 4-point + ROI quality | Ensure court corners and ROI polygon are correct; re-run calibrate-court on test frames. |
 | Medium | Calibration capture | `capture.py`: TODO – capture one or more frames to court calib dir (for manual or auto calibration). |
 | Medium | Auto-fix when check fails | `auto_fix.py`: TODO – court line detection + homography fit when quick_check fails. |
 | Low | Lens distortion | `distortion.py`: TODO – optional undistort before homography/ROI. |

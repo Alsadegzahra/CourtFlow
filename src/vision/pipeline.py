@@ -20,10 +20,13 @@ def run_tracking(
     *,
     sample_every_n_frames: int = 5,
     conf: float = 0.4,
+    iou: float = 0.5,
+    tracker: Optional[str] = None,
 ) -> List[dict]:
     """
     Run detection + tracking on video, optional ROI filter, output track records.
     Returns list of dicts: frame, timestamp, player_id, x_pixel, y_pixel, bbox_xyxy.
+    tracker: e.g. None (BoT-SORT default), "bytetrack.yaml" for ByteTrack.
     Raise or return [] on missing deps; stage_02 will write empty tracks on failure.
     """
     try:
@@ -51,7 +54,7 @@ def run_tracking(
         if frame_idx % sample_every_n_frames != 0:
             frame_idx += 1
             continue
-        dets = track_persons(frame, model=model, conf=conf)
+        dets = track_persons(frame, model=model, conf=conf, iou=iou, tracker=tracker)
         if roi_polygon:
             dets = filter_detections_by_roi(dets, roi_polygon)
         for d in dets:
