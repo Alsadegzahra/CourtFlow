@@ -5,6 +5,7 @@ Uses: court/registry, court/calibration/artifacts, video/frames_opencv, vision/*
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
@@ -24,6 +25,30 @@ class HighlightConfig:
     clip_len_s: float = 12.0
     every_s: float = 60.0
     max_clips: int = 10
+
+
+def _r2_configured() -> bool:
+    return bool(
+        os.getenv("R2_ACCESS_KEY_ID")
+        and os.getenv("R2_SECRET_ACCESS_KEY")
+        and os.getenv("R2_BUCKET")
+        and (os.getenv("R2_ACCOUNT_ID") or os.getenv("R2_ENDPOINT_URL"))
+    )
+
+
+def _upload_to_r2_if_configured(match_id: str) -> None:
+    """Upload match artifacts to R2 when env is set, so the website can show results. Never fails the pipeline."""
+    if not _r2_configured():
+        return
+    try:
+        from src.cloud.upload import upload_match_artifacts
+        result = upload_match_artifacts(match_id)
+        if result.get("keys"):
+            print(f"   Uploaded to R2: {result['keys']}")
+        else:
+            print("   R2: no files to upload (highlights/report/heatmap missing)")
+    except Exception as e:
+        print(f"   R2 upload failed (website may not show this match): {e}")
 
 
 def run_match(
@@ -109,6 +134,10 @@ def run_match(
         )
         update_match(match_id, state="DONE")
         print("\n✅ Pipeline finished.")
+
+        # Auto-upload to R2 when configured so the website can show results
+        _upload_to_r2_if_configured(match_id)
+
         return highlights_mp4
 
     except Exception as e:
