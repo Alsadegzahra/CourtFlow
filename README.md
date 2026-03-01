@@ -44,7 +44,8 @@ analytics and highlight videos. This repo uses a **unified structure**:
 3. **Process the match** (run pipeline → report + highlights):  
    `python -m src.app.cli run-match`  
    (uses latest FINALIZED match) or  
-   `python -m src.app.cli run-match --match_id match_2026_02_24_01`
+   `python -m src.app.cli run-match --match_id match_2026_02_24_01`  
+   If it feels slow: stage 02 (detection + tracking) is the heavy part; see **[docs/RUN_MATCH_TIME_AND_RESULTS.md](docs/RUN_MATCH_TIME_AND_RESULTS.md)** for why, how to speed up, and where to check results.
 
 4. **Optional: process all FINALIZED matches**:  
    `python -m src.app.cli daily-check`
@@ -63,6 +64,8 @@ analytics and highlight videos. This repo uses a **unified structure**:
 
 8. **Upload to cloud (R2)** – after run-match, if R2 is configured:  
    `python3 -m src.app.cli upload-match --match_id <id>`
+
+9. **Optional – custom detection weights:** When you receive a trained `best.pt` (e.g. from a teammate), put it in **`models/`** and run with `--detection-model models/best.pt`, or set `COURTFLOW_DETECTION_MODEL=./models/best.pt` in `.env`. See **[models/README.md](models/README.md)**.
 
 ---
 

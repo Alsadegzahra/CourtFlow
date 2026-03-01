@@ -193,6 +193,7 @@ def cmd_run_match(args: argparse.Namespace) -> None:
         track_conf=getattr(args, "conf", 0.4),
         track_iou=getattr(args, "iou", 0.5),
         track_tracker=getattr(args, "tracker", None),
+        track_detection_model=getattr(args, "detection_model", None),
     )
     print(f"Highlights: {path}")
 
@@ -255,10 +256,11 @@ def main() -> None:
     p_run.add_argument("--clip_len", type=float, default=12.0)
     p_run.add_argument("--every", type=float, default=60.0)
     p_run.add_argument("--max_clips", type=int, default=10)
-    p_run.add_argument("--sample_every", type=int, default=5, help="Track every N frames (pretrained tuning)")
-    p_run.add_argument("--conf", type=float, default=0.4, help="Detection confidence threshold (pretrained tuning)")
-    p_run.add_argument("--iou", type=float, default=0.5, help="NMS IoU threshold (pretrained tuning)")
+    p_run.add_argument("--sample_every", type=int, default=5, help="Track every N frames")
+    p_run.add_argument("--conf", type=float, default=0.4, help="Detection confidence threshold")
+    p_run.add_argument("--iou", type=float, default=0.5, help="NMS IoU threshold")
     p_run.add_argument("--tracker", default=None, help="Tracker config e.g. bytetrack.yaml (default: BoT-SORT)")
+    p_run.add_argument("--detection-model", dest="detection_model", default=None, help="Path to custom YOLO .pt weights (trained model); overrides COURTFLOW_DETECTION_MODEL; if unset uses pretrained")
     p_run.set_defaults(func=cmd_run_match)
 
     # daily-check

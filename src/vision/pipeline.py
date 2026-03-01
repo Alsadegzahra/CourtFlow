@@ -22,11 +22,14 @@ def run_tracking(
     conf: float = 0.4,
     iou: float = 0.5,
     tracker: Optional[str] = None,
+    detection_model: Optional[str] = None,
 ) -> List[dict]:
     """
     Run detection + tracking on video, optional ROI filter, output track records.
     Returns list of dicts: frame, timestamp, player_id, x_pixel, y_pixel, bbox_xyxy.
     tracker: e.g. None (BoT-SORT default), "bytetrack.yaml" for ByteTrack.
+    detection_model: path to custom YOLO .pt weights (overrides env COURTFLOW_DETECTION_MODEL);
+      if not set, uses pretrained yolo26n.pt / yolov8n.pt.
     Raise or return [] on missing deps; stage_02 will write empty tracks on failure.
     """
     try:
@@ -43,9 +46,12 @@ def run_tracking(
 
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    model = _get_model()
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    model = _get_model(detection_model)
     tracks: List[dict] = []
     frame_idx = 0
+    processed = 0  # frames we actually run detection on
+    progress_every = max(1, (total_frames // max(1, sample_every_n_frames)) // 20)  # ~20 progress lines
 
     while True:
         ret, frame = cap.read()
@@ -70,6 +76,10 @@ def run_tracking(
                 "y_pixel": round(y, 2),
                 "bbox_xyxy": d["bbox_xyxy"],
             })
+        processed += 1
+        if progress_every and processed % progress_every == 0 and total_frames > 0:
+            pct = min(100, round(100 * (frame_idx + 1) / total_frames, 1))
+            print(f"   ... tracking frame {frame_idx + 1}/{total_frames} ({pct}%)")
         frame_idx += 1
     cap.release()
     return tracks

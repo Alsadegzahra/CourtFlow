@@ -109,6 +109,7 @@ def stage_02_track(
     conf: float = 0.4,
     iou: float = 0.5,
     tracker: Optional[str] = None,
+    detection_model: Optional[str] = None,
 ) -> None:
     """Player detection + tracking -> tracks/tracks.json. Delegates to vision.pipeline (intelligence layer)."""
     from src.utils.io import write_json_atomic_any
@@ -129,6 +130,7 @@ def stage_02_track(
         conf=conf,
         iou=iou,
         tracker=tracker,
+        detection_model=detection_model,
     )
     write_json_atomic_any(tracks_file, tracks)
     if not tracks:

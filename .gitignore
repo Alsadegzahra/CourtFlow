@@ -12,8 +12,9 @@ input_videos/
 *.mp4
 *.mov
 
-# Models (weights can be large)
-models/
+# Models (weights can be large – folder and README are committed; .pt files are not)
+models/*.pt
+models/*.pth
 *.pt
 *.onnx
 

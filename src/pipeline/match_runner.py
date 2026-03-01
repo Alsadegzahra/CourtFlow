@@ -34,6 +34,7 @@ def run_match(
     track_conf: float = 0.4,
     track_iou: float = 0.5,
     track_tracker: Optional[str] = None,
+    track_detection_model: Optional[str] = None,
 ) -> Path:
     """
     Run full pipeline for one match: load match from DB, ensure dirs, run stages 01–06,
@@ -81,6 +82,7 @@ def run_match(
             conf=track_conf,
             iou=track_iou,
             tracker=track_tracker,
+            detection_model=track_detection_model,
         )
         print("\n[03] Coordinate mapping")
         stages.stage_03_map(out_dir, match["court_id"])

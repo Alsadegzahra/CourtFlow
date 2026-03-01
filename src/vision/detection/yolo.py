@@ -1,10 +1,13 @@
 """
 B3: run YOLO inference (person detection) and optional tracking.
 Uses: ultralytics, numpy. COCO class 0 = person.
+Default: pretrained YOLO (yolo26n.pt / yolov8n.pt). For better detection use a custom-trained
+model: set COURTFLOW_DETECTION_MODEL to path to your best.pt or pass detection_model to run_tracking.
 Default tracker: BoT-SORT (Ultralytics). Use tracker="bytetrack.yaml" for ByteTrack.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -13,15 +16,43 @@ import numpy as np
 # COCO person class id
 COCO_PERSON_CLASS_ID = 0
 
+# Pretrained model name (downloaded on first use) when no custom weights are given
+DEFAULT_PRETRAINED = "yolo26n.pt"
 
-def _get_model(model_name: str = "yolo26n.pt"):
-    """Load YOLO model (downloads on first use). Default: YOLO26 Nano (edge-friendly, faster CPU).
-    Falls back to yolov8n.pt if YOLO26 is not available in this ultralytics version."""
+
+def _resolve_model_path(value: str) -> Optional[Path]:
+    """If value is a path to an existing .pt file, return it (absolute); else None."""
+    p = Path(value)
+    if p.suffix.lower() != ".pt":
+        return None
+    if p.is_absolute() and p.exists():
+        return p
+    # Try cwd and project root
+    for base in (Path.cwd(), Path(__file__).resolve().parents[3]):
+        candidate = (base / value).resolve()
+        if candidate.exists():
+            return candidate
+    if p.exists():
+        return p.resolve()
+    return None
+
+
+def _get_model(model_name_or_path: Optional[str] = None):
+    """
+    Load YOLO model for person detection.
+    - If model_name_or_path is a path to an existing .pt file (or set via env COURTFLOW_DETECTION_MODEL),
+      loads that custom-trained weights file (no pretrained download).
+    - Otherwise uses pretrained: yolo26n.pt (falls back to yolov8n.pt if unavailable).
+    """
     from ultralytics import YOLO
+    value = model_name_or_path or os.getenv("COURTFLOW_DETECTION_MODEL") or DEFAULT_PRETRAINED
+    path = _resolve_model_path(value)
+    if path is not None:
+        return YOLO(str(path))
     try:
-        return YOLO(model_name)
+        return YOLO(value)
     except Exception:
-        if model_name.startswith("yolo26"):
+        if value.startswith("yolo26"):
             return YOLO("yolov8n.pt")
         raise
 

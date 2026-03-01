@@ -19,7 +19,7 @@ The **pipeline** (ingest → track → map → report → renders → highlights
 | Piece | Module | Role |
 |-------|--------|------|
 | **Entry point** | `src/vision/pipeline.py` | `run_tracking()` – video → list of track records. |
-| **Detection** | `src/vision/detection/yolo.py` | Person detection (default: YOLO26 Nano; fallback YOLOv8n). Swap model or replace detector here. |
+| **Detection** | `src/vision/detection/yolo.py` | Person detection (default: pretrained YOLO26n/YOLOv8n). Use a **custom-trained** `.pt` via `--detection-model` or env `COURTFLOW_DETECTION_MODEL` – see [DETECTION_TRAINING.md](DETECTION_TRAINING.md). |
 | **Tracking** | Same (ByteTrack via ultralytics) or `src/vision/tracking/` | Stable IDs over time. Replace with a better tracker if needed. |
 | **ROI filter** | `src/vision/roi_filter/filter.py` | Keep only detections inside court polygon. Tune or disable here. |
 | **Ground point** | `src/vision/tracking/ground_point.py` | Bbox → (x, y) for court mapping. Use bottom-center or keypoints later. |
@@ -43,8 +43,8 @@ Stage 03 adds `x_court`, `y_court` from calibration. Downstream code only expect
 ## How to improve accuracy (without touching the pipeline)
 
 1. **Better detection**
-   - In `src/vision/detection/yolo.py`: default is `yolo26n.pt` (YOLO26 Nano). Try larger variants (`yolo26s.pt`, `yolo26m.pt`, or `yolov8s.pt`/`yolov8m.pt`), tune `conf` / `iou`, or replace with another detector and keep the same output format (list of dicts with `bbox_xyxy`, `track_id` if you do tracking there).
-   - **Person detection is pretrained by default.** You can fine-tune or train on your own data (e.g. padel courts, specific camera angles) if you need better accuracy; otherwise pretrained is enough.
+   - **Use a trained model instead of pretrained:** set `COURTFLOW_DETECTION_MODEL` to your `best.pt` path, or pass `--detection-model path/to/best.pt` to `run-match`. See [DETECTION_TRAINING.md](DETECTION_TRAINING.md) for how to train YOLO on your data.
+   - In `src/vision/detection/yolo.py`: default is pretrained `yolo26n.pt` / `yolov8n.pt`. You can also try larger pretrained variants by setting the env to `yolo26s.pt` or `yolov8m.pt`, or tune `conf` / `iou`; or replace with another detector that returns the same format (list of dicts with `bbox_xyxy`, `track_id`).
 
 2. **Better tracking**
    - Option A: keep using `track_persons()` in yolo.py but tune ultralytics tracker params.
