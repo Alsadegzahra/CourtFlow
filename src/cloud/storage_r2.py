@@ -12,8 +12,10 @@ from typing import Optional
 try:
     import boto3
     from botocore.config import Config
+    from botocore.exceptions import ClientError
 except ImportError:
     boto3 = None  # type: ignore
+    ClientError = Exception  # type: ignore
 
 
 def _get_client():
@@ -56,6 +58,18 @@ def put_object(
     with open(file_path, "rb") as f:
         client.upload_fileobj(f, bucket, key, ExtraArgs=extra)
     return key
+
+
+def head_object(bucket: str, key: str) -> bool:
+    """Return True if the object exists in R2, False if not found."""
+    client = _get_client()
+    try:
+        client.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            return False
+        raise
 
 
 def get_object_bytes(bucket: str, key: str) -> bytes:

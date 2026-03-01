@@ -233,7 +233,10 @@ def get_match_cloud_urls(
             status_code=503,
             detail="R2 not configured. Set R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ACCOUNT_ID in .env",
         )
+    import os
     from src.cloud.upload import get_signed_url_for_key
+    from src.cloud.storage_r2 import head_object
+    bucket = os.getenv("R2_BUCKET")
     prefix = f"matches/{match_id}"
     out = {"highlights_url": None, "report_url": None, "heatmap_url": None}
     try:
@@ -248,12 +251,14 @@ def get_match_cloud_urls(
         )
     except Exception:
         pass
-    try:
-        out["heatmap_url"] = get_signed_url_for_key(
-            f"{prefix}/heatmap.png", expiration_seconds=expires_seconds
-        )
-    except Exception:
-        pass
+    heatmap_key = f"{prefix}/heatmap.png"
+    if bucket and head_object(bucket, heatmap_key):
+        try:
+            out["heatmap_url"] = get_signed_url_for_key(
+                heatmap_key, expiration_seconds=expires_seconds
+            )
+        except Exception:
+            pass
     return out
 
 

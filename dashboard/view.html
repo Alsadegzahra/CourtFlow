@@ -76,6 +76,7 @@
     .heatmap-wrap { position: relative; border-radius: 0.25rem; overflow: hidden; background: var(--surface); }
     .heatmap-wrap img { display: block; width: 100%; max-height: 28rem; object-fit: contain; }
     .heatmap-legend { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.5rem; }
+    .heatmap-unavailable { font-size: 0.875rem; color: var(--text-muted); padding: 2rem; text-align: center; margin: 0; }
 
     /* ----- Highlights ----- */
     .highlights-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; }
@@ -171,7 +172,8 @@
             <button type="button" class="heatmap-toggle" data-view="2">Player 2</button>
           </div>
           <div class="heatmap-wrap">
-            <img id="heatmap-img" src="" alt="Court heatmap" onerror="this.style.display='none'">
+            <img id="heatmap-img" src="" alt="Court heatmap">
+            <p id="heatmap-unavailable" class="heatmap-unavailable" style="display: none;">Heatmap not available for this match.</p>
           </div>
           <p class="heatmap-legend">Density scale: low → high. Single heatmap (all players) in Phase 1; per-player view is future.</p>
         </div>
@@ -354,12 +356,25 @@
             if (urlsRes.ok) cloudUrls = await urlsRes.json();
           } catch (e) {}
 
-          // Heatmap: use heatmap_url from cloud when available (deployed), else local API
+          // Heatmap: use heatmap_url from cloud when available, else local API; on error try API fallback once
           const heatmapImg = document.getElementById('heatmap-img');
+          const heatmapApiUrl = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
+          const heatmapUnavail = document.getElementById('heatmap-unavailable');
+          heatmapImg.onerror = function () {
+            if (heatmapImg.dataset.fallbackTried) {
+              heatmapImg.style.display = 'none';
+              if (heatmapUnavail) heatmapUnavail.style.display = 'block';
+              return;
+            }
+            heatmapImg.dataset.fallbackTried = '1';
+            heatmapImg.src = heatmapApiUrl;
+            heatmapImg.style.display = '';
+          };
           if (cloudUrls.heatmap_url) {
+            heatmapImg.dataset.fallbackTried = '';
             heatmapImg.src = cloudUrls.heatmap_url;
           } else {
-            heatmapImg.src = API_BASE + '/matches/' + encodeURIComponent(matchId) + '/report/heatmap';
+            heatmapImg.src = heatmapApiUrl;
           }
           heatmapImg.style.display = '';
           document.querySelectorAll('.heatmap-toggle').forEach(function (btn) {
